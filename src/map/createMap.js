@@ -327,9 +327,51 @@ function tempelRel(lng, lat) {
       }
     });
 
+    /* TransJakarta: posisi masuk tiap 1,5 dtk, tapi digambar dengan interpolasi 250 ms
+       supaya bus bergerak mulus, tidak melompat */
+    const tjGerak = new Map();
+    const tjPosisi = (g, kini) => {
+      const f = Math.min(1, (kini - g.t0) / g.dur);
+      return [g.fx + (g.tx - g.fx) * f, g.fy + (g.ty - g.fy) * f];
+    };
+    const gambarTJ = () => {
+      const kini = performance.now();
+      const feats = [];
+      for (const [id, g] of tjGerak) {
+        const [lng, lat] = tjPosisi(g, kini);
+        feats.push({ type: "Feature", geometry: { type: "Point", coordinates: [lng, lat] }, properties: { ...g.p, id } });
+      }
+      map.getSource("tj")?.setData({ type: "FeatureCollection", features: feats });
+    };
+
     import("./tj.js").then(({ sambungTJ }) => {
       tj = sambungTJ((feats) => {
-        map.getSource("tj")?.setData({ type: "FeatureCollection", features: feats });
+        const kini = performance.now();
+        const hidup = new Set();
+        for (const f of feats) {
+          const id = f.properties.id;
+          hidup.add(id);
+          const [lng, lat] = f.geometry.coordinates;
+          const lama = tjGerak.get(id);
+          if (!lama) {
+            tjGerak.set(id, { fx: lng, fy: lat, tx: lng, ty: lat, t0: kini, dur: 1000, p: f.properties });
+          } else {
+            const [cx, cy] = tjPosisi(lama, kini);
+            const jeda = kini - (lama.tBaru || lama.t0);
+            const jauh = Math.hypot((lng - cx) * 111320 * Math.cos(cy * Math.PI / 180), (lat - cy) * 110540);
+            /* lompatan > 500 m bukan pergerakan wajar: langsung pindah, jangan meluncur */
+            if (jauh > 500) {
+              tjGerak.set(id, { fx: lng, fy: lat, tx: lng, ty: lat, t0: kini, tBaru: kini, dur: 1, p: f.properties });
+            } else {
+              tjGerak.set(id, {
+                fx: cx, fy: cy, tx: lng, ty: lat, t0: kini, tBaru: kini,
+                dur: Math.min(8000, Math.max(1500, jeda * 1.1)),
+                p: f.properties,
+              });
+            }
+          }
+        }
+        for (const id of [...tjGerak.keys()]) if (!hidup.has(id)) tjGerak.delete(id);
         onBus?.(feats.length);
       });
     });
@@ -388,7 +430,7 @@ function tempelRel(lng, lat) {
     if (antre.trains) pasang(antre.trains);
     if (antre.stations) map.getSource("stasiun")?.setData(keStasiun(antre.stations));
     if (antre.jalur) map.getSource("jalur")?.setData(keJalur(antre.jalur));
-    setInterval(() => { if (siap && !document.hidden) gambar(); }, 250);
+    setInterval(() => { if (siap && !document.hidden) { gambar(); gambarTJ(); } }, 250);
   });
 
   if (import.meta.env.DEV) window.__diag = () => {
@@ -484,6 +526,7 @@ function tempelRel(lng, lat) {
   }
 
   /* pemeriksa lapisan (dipakai untuk uji tampilan) */
+  window.__mapRef = map; /* dipakai untuk uji otomatis */
   window.__rvInfo = () => {
     const n = (id) => { try { return map.queryRenderedFeatures({ layers: [id] }).length; } catch (e) { return -1; } };
     return {
