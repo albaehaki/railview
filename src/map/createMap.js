@@ -314,10 +314,17 @@ function tempelRel(lng, lat) {
     });
     map.on("click", "tj-titik", (e) => {
       const f = e.features?.[0];
-      if (f) new maplibregl.Popup({ closeButton: false, offset: 8 })
-        .setLngLat(f.geometry.coordinates)
-        .setHTML(`<b>${f.properties.rute}</b><br>${f.properties.nama}<br><small>${f.properties.id} · ${f.properties.tipe}</small>`)
-        .addTo(map);
+      if (f) {
+        const p = f.properties;
+        new maplibregl.Popup({ closeButton: false, offset: 14, className: "pop-tj", maxWidth: "280px" })
+          .setLngLat(f.geometry.coordinates)
+          .setHTML(`<div class="ptj">
+            <div class="ptj-utama"><span class="ptj-kode">${p.rute || "TJ"}</span><span class="ptj-tipe">${p.tipe || "BRT"}</span></div>
+            <div class="ptj-nama">${p.nama || "TransJakarta"}</div>
+            <div class="ptj-id">${p.id}</div>
+          </div>`)
+          .addTo(map);
+      }
     });
 
     import("./tj.js").then(({ sambungTJ }) => {
@@ -487,6 +494,7 @@ function tempelRel(lng, lat) {
       loaded: map.loaded(), gayaSiap: map.isStyleLoaded(), lapis: (map.getStyle()?.layers || []).length, siap,
       layar: (() => { const f = map.queryRenderedFeatures({ layers: ["kereta-titik"] })[0]; if (!f) return null; const q = map.project(f.geometry.coordinates); const r = map.getCanvas().getBoundingClientRect(); return [Math.round(r.left + q.x), Math.round(r.top + q.y), f.geometry.coordinates]; })(),
       tengah: [map.getCenter().lng, map.getCenter().lat],
+      tjLayar: (() => { const f = map.queryRenderedFeatures({ layers: ["tj-titik"] })[0]; if (!f) return null; const q = map.project(f.geometry.coordinates); const r = map.getCanvas().getBoundingClientRect(); return [Math.round(r.left + q.x), Math.round(r.top + q.y)]; })(),
       kameraLayar: (() => { const f = map.queryRenderedFeatures({ layers: ["kamera-ikon"] })[0]; if (!f) return null; const q = map.project(f.geometry.coordinates); const r = map.getCanvas().getBoundingClientRect(); return [Math.round(r.left + q.x), Math.round(r.top + q.y), f.properties.nama]; })(),
     };
   };
