@@ -543,14 +543,14 @@ export function createScene(canvas, stage, labelBox) {
       const p = railCurve.getPointAt(tr.t);
       const tan = railCurve.getTangentAt(tr.t);
       tr.mesh.position.set(p.x, 0, p.z);
-      tr.mesh.rotation.y = Math.atan2(tan.x, tan.z);
+      tr.mesh.rotation.y = Math.atan2(tan.x, tan.z) - Math.PI / 2;
     }
     for (const c of cars) {
       c.t = (c.t + dt * c.speed * c.dir + 1) % 1;
       const p = c.curve.getPointAt(c.t);
       const tan = c.curve.getTangentAt(c.t);
       c.mesh.position.set(p.x + -tan.z * c.off, c.yFn(c.t) + 0.6, p.z + tan.x * c.off);
-      c.mesh.rotation.y = Math.atan2(tan.x * c.dir, tan.z * c.dir);
+      c.mesh.rotation.y = Math.atan2(tan.x * c.dir, tan.z * c.dir) - Math.PI / 2;
     }
     trainAnchor.pos.copy(trains[0].mesh.position).add(new THREE.Vector3(0, 7, 0));
     trainAnchor2.pos.copy(trains[2].mesh.position).add(new THREE.Vector3(0, 7, 0));
