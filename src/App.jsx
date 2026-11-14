@@ -306,7 +306,7 @@ export default function App() {
         <div>
           <div className="label">Lapisan</div>
           <div className="layer on">
-            <span className="sw" style={{ background: "#e8562a" }} />
+            <span className="sw" style={{ background: "linear-gradient(90deg,#f08a2c 55%,#4fd1b5 55%)" }} />
             TransJakarta
             <span className="n">{bus}</span>
           </div>
@@ -357,7 +357,8 @@ export default function App() {
             {["K", "M", "L", "J", "W"].map((m) => (
               <span key={m}><i style={{ background: WARNA_MODA[m] }} />{MODA[m]}</span>
             ))}
-            <span><i style={{ background: "#e8562a" }} />TransJakarta</span>
+            <span><i style={{ background: "#f08a2c" }} />TransJakarta BRT</span>
+            <span><i style={{ background: "#4fd1b5" }} />Mikrotrans</span>
             <span><i style={{ background: "#8FA7C4" }} />stasiun</span>
           </div>
         </div>

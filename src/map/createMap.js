@@ -305,11 +305,18 @@ function tempelRel(lng, lat) {
       type: "circle",
       source: "tj",
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.6, 14, 5],
-        "circle-color": ["match", ["get", "tipe"], "Mikrotrans", "#f2a541", "BRT", "#e8562a", "#e8562a"],
-        "circle-opacity": 0.9,
-        "circle-stroke-color": "#120a06",
-        "circle-stroke-width": 0.7,
+        "circle-radius": ["match", ["get", "tipe"],
+          "Mikrotrans", ["interpolate", ["linear"], ["zoom"], 10, 2.2, 14, 4.2],
+          ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5.6]],
+        "circle-color": ["match", ["get", "tipe"],
+          "Mikrotrans", "#4fd1b5",
+          "BRT", "#f08a2c",
+          "Angkutan Umum Integrasi", "#a98be0",
+          "Rusun", "#e07fb8",
+          "#f08a2c"],
+        "circle-opacity": 0.95,
+        "circle-stroke-color": ["match", ["get", "tipe"], "Mikrotrans", "#06322b", "#1a0d04"],
+        "circle-stroke-width": ["match", ["get", "tipe"], "Mikrotrans", 0.9, 0.8],
       },
     });
     map.on("click", "tj-titik", (e) => {
