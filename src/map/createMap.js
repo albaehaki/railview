@@ -4,7 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const STYLE = "https://tiles.openfreemap.org/styles/dark";
 const PUSAT = [106.86, -6.22];
 
-export function createMap(el, { onTrain, onBus, onKamera } = {}) {
+export function createMap(el, { onTrain, onKamera, onBus, onStasiun } = {}) {
   let tj = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
@@ -174,6 +174,45 @@ function tempelRel(lng, lat) {
         "icon-allow-overlap": true,
       },
     });
+
+    /* stasiun lengkap dari OSM (158 titik) — data 168railway cuma 85 dan banyak di luar Jabodetabek */
+    for (const id of ["stasiun-titik", "stasiun-ikon", "stasiun-nama"]) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
+    }
+    fetch("/stasiun-osm.geojson?v=1")
+      .then((r) => r.json())
+      .then((g) => {
+        if (map.getSource("stasiunOsm")) return;
+        onStasiun?.(g.features.length);
+        map.addSource("stasiunOsm", { type: "geojson", data: g });
+        map.addLayer({
+          id: "stasiun-osm-ikon",
+          type: "symbol",
+          source: "stasiunOsm",
+          layout: {
+            "icon-image": "stasiun-ikon",
+            "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.34, 13, 0.62],
+            "icon-allow-overlap": true,
+          },
+        });
+        map.addLayer({
+          id: "stasiun-osm-nama",
+          type: "symbol",
+          source: "stasiunOsm",
+          minzoom: 11.5,
+          layout: {
+            "text-field": ["get", "nama"],
+            "text-font": ["Noto Sans Regular"],
+            "text-size": ["interpolate", ["linear"], ["zoom"], 11.5, 9, 15, 11.5],
+            "text-offset": [0, 1.1],
+            "text-anchor": "top",
+            "text-allow-overlap": false,
+            "text-padding": 3,
+          },
+          paint: { "text-color": "#cdd6c6", "text-halo-color": "#050705", "text-halo-width": 1.3 },
+        });
+      })
+      .catch(() => {});
 
     /* kereta */
     map.addSource("kereta", {

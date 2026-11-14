@@ -47,6 +47,7 @@ export default function App() {
   const [daftarKamera, setDaftarKamera] = useState([]);
   const videoRef = useRef(null);
   const daftarRef = useRef([]);
+  const [jumlahStasiun, setJumlahStasiun] = useState(0);
   const sempit = typeof window !== "undefined" && window.innerWidth < 900;
   const paksaFokus = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("fokus");
   const [kiri, setKiri] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-kiri") !== "0"));
@@ -153,6 +154,7 @@ export default function App() {
 
       const map = createMap(boxRef.current, {
         onBus: (n) => setBus(n),
+        onStasiun: (n) => setJumlahStasiun(n),
         onKamera: (nama) => {
           const k = daftarRef.current.find((x) => x.nama === nama);
           if (!k) return;
@@ -277,7 +279,7 @@ export default function App() {
         <div className="meta">
           <span><b>{trains.length}</b> aktif</span>
           <span><b>{total.semua || 2.392}</b> hari ini</span>
-          <span><b>{stations.length || 85}</b> stasiun</span>
+          <span><b>{jumlahStasiun || stations.length || 85}</b> stasiun</span>
         </div>
         <button
           className="fokus"
