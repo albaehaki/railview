@@ -159,7 +159,6 @@ export default function App() {
           setKamera(k);
           setTab("kamera");
           setKanan(true);
-          if (k.lat && k.lng) mapRef.current?.flyKe(k.lng, k.lat, 14);
         },
         onTrain: async (props) => {
           setPilih(props);
@@ -169,8 +168,7 @@ export default function App() {
           if (j && j.jalur) {
             setJalur(j);
             mapRef.current?.setJalur(j.garis || j.jalur);
-            const last = j.jalur[0];
-            if (last) mapRef.current?.flyKe(last.lng, last.lat, 12.4);
+            /* tidak menggeser peta saat kereta diklik — cukup panel + garis rute */
           }
         },
       });

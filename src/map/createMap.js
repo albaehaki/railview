@@ -321,7 +321,7 @@ function tempelRel(lng, lat) {
 
     map.on("click", "kereta-titik", (e) => {
       const f = e.features?.[0];
-      if (f && onTrain) onTrain(f.properties);
+      if (f && onTrain) onTrain({ ...f.properties, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] });
     });
     map.on("mouseenter", "kereta-titik", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kereta-titik", () => (map.getCanvas().style.cursor = ""));
@@ -404,6 +404,9 @@ function tempelRel(lng, lat) {
       dataStasiun: map.querySourceFeatures("stasiun").length, dataKamera: map.querySourceFeatures("kamera").length,
       relSiap: relSeg.size > 0, zoom: +map.getZoom().toFixed(2),
       loaded: map.loaded(), gayaSiap: map.isStyleLoaded(), lapis: (map.getStyle()?.layers || []).length, siap,
+      layar: (() => { const f = map.queryRenderedFeatures({ layers: ["kereta-titik"] })[0]; if (!f) return null; const q = map.project(f.geometry.coordinates); const r = map.getCanvas().getBoundingClientRect(); return [Math.round(r.left + q.x), Math.round(r.top + q.y), f.geometry.coordinates]; })(),
+      tengah: [map.getCenter().lng, map.getCenter().lat],
+      kameraLayar: (() => { const f = map.queryRenderedFeatures({ layers: ["kamera-ikon"] })[0]; if (!f) return null; const q = map.project(f.geometry.coordinates); const r = map.getCanvas().getBoundingClientRect(); return [Math.round(r.left + q.x), Math.round(r.top + q.y), f.properties.nama]; })(),
     };
   };
 
@@ -455,6 +458,7 @@ function tempelRel(lng, lat) {
       map.easeTo({ pitch: on ? 58 : 0, bearing: on ? -17 : 0, duration: 700 });
     },
     flyKe(lng, lat, zoom = 13) {
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
       map.flyTo({ center: [lng, lat], zoom, pitch: 55, duration: 900 });
     },
     resize() {
