@@ -232,3 +232,59 @@ body {
   .modes { left: 12px; top: auto; bottom: calc(54vh + 12px); }
   .skeleton { font-size: 11px; }
 }
+
+.frame video { width: 100%; height: 100%; object-fit: cover; display: block; background: #050705; }
+.camselect {
+  margin: 10px 16px 0; width: calc(100% - 32px); background: #0f140e; color: var(--ink);
+  border: 1px solid var(--line2); font-family: "IBM Plex Mono", monospace; font-size: 10.5px;
+  padding: 7px 8px; outline: none;
+}
+
+/* ── panel bisa disembunyikan ── */
+.rail { transition: transform .28s cubic-bezier(.4,0,.2,1); }
+.panel { transition: transform .28s cubic-bezier(.4,0,.2,1); }
+.app.kiri-tutup .rail { transform: translateX(-100%); }
+.app.kanan-tutup .panel { transform: translateX(100%); }
+.app.kiri-tutup .mapchrome { left: 18px; }
+.mapchrome { transition: left .28s cubic-bezier(.4,0,.2,1); }
+
+.lipat {
+  position: absolute; top: 50%; z-index: 6; width: 17px; height: 52px;
+  transform: translateY(-50%); background: var(--panel); color: var(--muted);
+  border: 1px solid var(--line2); font-family: "IBM Plex Mono", monospace;
+  font-size: 13px; line-height: 1; cursor: pointer; padding: 0;
+  transition: left .28s cubic-bezier(.4,0,.2,1), right .28s cubic-bezier(.4,0,.2,1), color .15s, background .15s;
+}
+.lipat:hover { color: var(--ink); background: #162016; }
+.lipat-kiri { left: 236px; border-left: 0; }
+.lipat-kanan { right: 376px; border-right: 0; }
+.app.kiri-tutup .lipat-kiri { left: 0; }
+.app.kanan-tutup .lipat-kanan { right: 0; }
+
+.fokus {
+  display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px;
+  background: none; border: 1px solid var(--line2); color: var(--muted);
+  font-family: "IBM Plex Mono", monospace; font-size: 9.5px; letter-spacing: .12em;
+  text-transform: uppercase; cursor: pointer;
+}
+.fokus:hover { color: var(--ink); border-color: #46543f; }
+.fokus i { font-style: normal; color: var(--dim); border-left: 1px solid var(--line2); padding-left: 6px; }
+
+@media (max-width: 900px) {
+  .rail { width: 236px; box-shadow: 0 0 30px rgba(0,0,0,.6); }
+  .panel { width: min(376px, 92vw); box-shadow: 0 0 30px rgba(0,0,0,.6); }
+  .lipat-kiri { left: 236px; }
+  .lipat-kanan { right: min(376px, 92vw); }
+  .app.kanan-tutup .lipat-kanan { right: 0; }
+  .meta span:nth-child(2), .crumbs { display: none; }
+}
+
+/* ticker bisa disembunyikan */
+.ticker { transition: transform .28s cubic-bezier(.4,0,.2,1); }
+.app.bawah-tutup .ticker { transform: translateY(100%); }
+.app.bawah-tutup .panel { bottom: 0; }
+.lipat-bawah {
+  left: auto; right: 14px; top: -17px; width: 40px; height: 17px;
+  transform: none; border-bottom: 0; font-size: 10px;
+}
+@media (max-width: 900px) { .lipat-bawah { display: none; } }

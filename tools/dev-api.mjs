@@ -1,10 +1,19 @@
 import { createServer } from "node:http";
 import { ambilTrains, ambilStations, ambilDepots, ambilJalur } from "../netlify/functions/_rail-core.js";
+import cctv from "../netlify/functions/cctv.js";
 
 const PORT = 8898;
 
 createServer(async (req, res) => {
   const u = new URL(req.url, `http://localhost:${PORT}`);
+
+  if (u.pathname === "/api/cctv") {
+    const r = await cctv(new Request(u.toString()));
+    res.writeHead(r.status, Object.fromEntries(r.headers.entries()));
+    res.end(Buffer.from(await r.arrayBuffer()));
+    return;
+  }
+
   const what = u.searchParams.get("what") || "trains";
   try {
     let data;

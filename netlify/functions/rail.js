@@ -2,7 +2,7 @@ import { ambilTrains, ambilStations, ambilDepots, ambilJalur } from "./_rail-cor
 
 const HEADERS = {
   "content-type": "application/json; charset=utf-8",
-  "cache-control": "public, max-age=10, s-maxage=20, stale-while-revalidate=40",
+  "cache-control": "public, max-age=0, s-maxage=8, stale-while-revalidate=0",
   "access-control-allow-origin": "*",
 };
 

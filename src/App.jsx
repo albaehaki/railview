@@ -42,6 +42,90 @@ export default function App() {
   const [pilih, setPilih] = useState(null);
   const [jalur, setJalur] = useState(null);
   const [status, setStatus] = useState("memuat");
+  const [bus, setBus] = useState(0);
+  const [kamera, setKamera] = useState(null);
+  const [daftarKamera, setDaftarKamera] = useState([]);
+  const videoRef = useRef(null);
+  const sempit = typeof window !== "undefined" && window.innerWidth < 900;
+  const paksaFokus = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("fokus");
+  const [kiri, setKiri] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-kiri") !== "0"));
+  const [kanan, setKanan] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-kanan") !== "0"));
+  const [bawah, setBawah] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-bawah") !== "0"));
+
+  /* simpan pilihan panel + tombol fokus (H) */
+  useEffect(() => { localStorage.setItem("rv-kiri", kiri ? "1" : "0"); }, [kiri]);
+  useEffect(() => { localStorage.setItem("rv-kanan", kanan ? "1" : "0"); }, [kanan]);
+  useEffect(() => { localStorage.setItem("rv-bawah", bawah ? "1" : "0"); }, [bawah]);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      if (e.key.toLowerCase() !== "h" || e.metaKey || e.ctrlKey) return;
+      const ada = kiri || kanan || bawah;
+      setKiri(!ada);
+      setKanan(!ada);
+      setBawah(!ada);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [kiri, kanan, bawah]);
+
+  /* klik kereta → panel kanan muncul sendiri */
+  useEffect(() => { if (pilih) setKanan(true); }, [pilih]);
+
+  /* daftar kamera — diulang kalau fungsi server baru bangun (cold start) */
+  useEffect(() => {
+    let hidup = true;
+    let coba = 0;
+    const ambil = async () => {
+      try {
+        const d = await fetch(`/api/cctv?what=list&t=${Date.now()}`).then((r) => r.json());
+        if (!hidup) return;
+        const semua = d.kamera || [];
+        if (!semua.length) throw new Error("kosong");
+        setDaftarKamera(semua);
+        setKamera(semua.find((k) => k.jenis === "iframe" && k.hidup !== false) || semua.find((k) => k.hidup !== false) || semua[0]);
+      } catch {
+        if (hidup && coba++ < 6) setTimeout(ambil, 3000);
+      }
+    };
+    ambil();
+    return () => { hidup = false; };
+  }, []);
+
+  /* siaran HLS */
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !kamera || tab !== "kamera" || kamera.jenis === "iframe") return;
+    let hls = null;
+    let batal = false;
+    const url = `/api/cctv?what=m3u8&n=${encodeURIComponent(kamera.nama)}`;
+
+    (async () => {
+      const Hls = (await import("hls.js")).default;
+      if (batal) return;
+      if (Hls.isSupported()) {
+        hls = new Hls({ maxBufferLength: 10 });
+        hls.loadSource(url);
+        hls.attachMedia(v);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
+        hls.on(Hls.Events.ERROR, (_e, d) => {
+          window.__hlsErr = JSON.stringify({ t: d.type, d: d.details, code: d.response?.code, url: d.url, frag: d.frag?.url, txt: d.response?.text });
+          console.warn("HLS", window.__hlsErr);
+        });
+      } else if (v.canPlayType("application/vnd.apple.mpegurl")) {
+        v.src = url;
+        v.play().catch(() => {});
+      }
+    })();
+
+    return () => {
+      batal = true;
+      if (hls) hls.destroy();
+      v.removeAttribute("src");
+      v.load();
+    };
+  }, [kamera, tab]);
 
   /* jam */
   useEffect(() => {
@@ -65,6 +149,7 @@ export default function App() {
       if (!hidup || !boxRef.current) return;
 
       const map = createMap(boxRef.current, {
+        onBus: (n) => setBus(n),
         onTrain: async (props) => {
           setPilih(props);
           setTab("kereta");
@@ -107,7 +192,7 @@ export default function App() {
       const muat = async () => {
         try {
           const [t, s] = await Promise.all([
-            fetch("/api/rail?what=trains").then((r) => r.json()),
+            fetch(`/api/rail?what=trains&t=${Date.now()}`).then((r) => r.json()),
             fetch("/api/rail?what=stations").then((r) => r.json()),
           ]);
           if (!hidup) return;
@@ -121,7 +206,10 @@ export default function App() {
           }
           setStatus("siap");
         } catch (e) {
-          if (hidup) setStatus("gangguan");
+          if (hidup) {
+            setStatus((s) => (s === "siap" ? s : "gangguan"));
+            setTimeout(() => { if (hidup) muat(); }, 5000);
+          }
         }
       };
 
@@ -130,7 +218,7 @@ export default function App() {
 
       timer = setInterval(() => {
         if (document.visibilityState === "visible") muat();
-      }, 20000);
+      }, 10000);
 
       const onVis = () => {
         if (document.visibilityState === "visible") muat();
@@ -143,6 +231,7 @@ export default function App() {
     return () => {
       hidup = false;
       if (timer) clearInterval(timer);
+      mapRef.current?.hentikan();
       mapRef.current?.map?.remove();
       mapRef.current = null;
     };
@@ -172,7 +261,7 @@ export default function App() {
   const sisaJalur = jalur ? jalur.jalur.filter((p) => p.st !== jalur.jalur[0].st).slice(0, 6) : [];
 
   return (
-    <div className="app">
+    <div className={"app" + (kiri ? "" : " kiri-tutup") + (kanan ? "" : " kanan-tutup") + (bawah ? "" : " bawah-tutup")}>
       <header className="topbar">
         <div className="brand">RailView<i>pantau publik</i></div>
         <div className="crumbs"><b>JABODETABEK</b> / {status === "siap" ? "data langsung" : status === "memuat" ? "memuat…" : "gangguan"}</div>
@@ -181,8 +270,19 @@ export default function App() {
           <span><b>{total.semua || 2.392}</b> hari ini</span>
           <span><b>{stations.length || 85}</b> stasiun</span>
         </div>
+        <button
+          className="fokus"
+          onClick={() => { const ada = kiri || kanan || bawah; setKiri(!ada); setKanan(!ada); setBawah(!ada); }}
+          title="Sembunyikan semua panel (H)"
+        >
+          {kiri || kanan ? "fokus" : "panel"} <i>H</i>
+        </button>
         <div className="clock">{jam}</div>
       </header>
+
+      <button className="lipat lipat-kiri" onClick={() => setKiri((v) => !v)} title={kiri ? "Sembunyikan panel kiri" : "Tampilkan panel kiri"}>
+        {kiri ? "‹" : "›"}
+      </button>
 
       <aside className="rail">
         <div>
@@ -194,6 +294,11 @@ export default function App() {
 
         <div>
           <div className="label">Lapisan</div>
+          <div className="layer on">
+            <span className="sw" style={{ background: "#e8562a" }} />
+            TransJakarta
+            <span className="n">{bus}</span>
+          </div>
           {["K", "M", "L", "J", "W", "A", "B"].map((m) => (
             <div className="layer on" key={m}>
               <span className="sw" style={{ background: WARNA_MODA[m] }} />
@@ -241,6 +346,7 @@ export default function App() {
             {["K", "M", "L", "J", "W"].map((m) => (
               <span key={m}><i style={{ background: WARNA_MODA[m] }} />{MODA[m]}</span>
             ))}
+            <span><i style={{ background: "#e8562a" }} />TransJakarta</span>
             <span><i style={{ background: "#8FA7C4" }} />stasiun</span>
           </div>
         </div>
@@ -269,6 +375,10 @@ export default function App() {
         </div>
       </main>
 
+      <button className="lipat lipat-kanan" onClick={() => setKanan((v) => !v)} title={kanan ? "Sembunyikan panel kanan" : "Tampilkan panel kanan"}>
+        {kanan ? "›" : "‹"}
+      </button>
+
       <aside className="panel">
         <div className="ptabs">
           <button className={"ptab" + (tab === "kamera" ? " on" : "")} onClick={() => setTab("kamera")}>kamera</button>
@@ -279,25 +389,44 @@ export default function App() {
         {tab === "kamera" ? (
           <div className="pane">
             <div className="phead">
-              <div className="eyebrow">kamera · bekasi <em>siaran</em></div>
-              <h1>Jl Chairil Anwar<br />DPRD Kota Bekasi</h1>
-              <div className="sub">Kamera lalu lintas · arah barat · 1080p</div>
+              <div className="eyebrow">kamera · {kamera?.kota?.toLowerCase() || "jabodetabek"} <em>siaran</em></div>
+              <h1>{kamera ? kamera.judul : "memuat kamera…"}</h1>
+              <div className="sub">{daftarKamera.length} kamera publik · video langsung</div>
             </div>
             <div className="frame">
-              <img src="https://i0.wp.com/pemkotbekasi.github.io/cctv_pic/Jl_Chairil_Anwar_DPRD_Kota_Bekasi.jpg" alt="Bingkai kamera Jl Chairil Anwar" />
+              {kamera?.jenis === "iframe" ? (
+                <iframe
+                  key={kamera.nama}
+                  src={kamera.embed}
+                  title={kamera.judul}
+                  allow="autoplay; fullscreen"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <video ref={videoRef} poster={kamera?.foto} muted playsInline autoPlay />
+              )}
               <div className="grain" />
               <div className="rec"><u />LANGSUNG</div>
               <div className="stamp">{jam} · 14 NOV 2026</div>
             </div>
-            <div className="src"><span>thumbnail resmi Pemkot Bekasi</span><span>hls · 4 dtk</span></div>
+            <div className="src"><span>sumber: bekasikota.go.id</span><span>hls · proxy</span></div>
+            <select
+              className="camselect"
+              value={kamera?.nama || ""}
+              onChange={(e) => setKamera(daftarKamera.find((k) => k.nama === e.target.value) || null)}
+            >
+              {daftarKamera.map((k) => (
+                <option key={k.nama} value={k.nama}>{k.judul}{k.hidup === false ? " · offline" : ""}</option>
+              ))}
+            </select>
             <div className="rows">
               <div className="row"><span>Pengelola</span><b>Pemkot Bekasi</b></div>
-              <div className="row"><span>Koordinat</span><b>-6.2349, 106.9896</b></div>
-              <div className="row"><span>Jarak ke rel</span><b>240 m</b></div>
-              <div className="row"><span>Kereta terdekat</span><b>KRL 1732 · 1,8 km</b></div>
+              <div className="row"><span>Kamera</span><b>{kamera?.nama || "—"}</b></div>
+              <div className="row"><span>Format</span><b>HLS · 1080p</b></div>
+              <div className="row"><span>Status</span><b>siaran publik</b></div>
             </div>
             <div className="acts">
-              <button className="btn primary">Buka sumber</button>
+              <button className="btn primary" onClick={() => kamera && window.open(kamera.foto, "_blank")}>Buka sumber</button>
               <button className="btn">Sematkan</button>
             </div>
           </div>
@@ -346,7 +475,10 @@ export default function App() {
       </aside>
 
       <footer className="ticker">
-        <div className="thead"><span>kereta berjalan sekarang</span><span>·</span><span>20 detik</span></div>
+        <button className="lipat lipat-bawah" onClick={() => setBawah((v) => !v)} title={bawah ? "Sembunyikan daftar kereta" : "Tampilkan daftar kereta"}>
+          {bawah ? "⌄" : "⌃"}
+        </button>
+        <div className="thead"><span>kereta berjalan sekarang</span><span>·</span><span>10 detik</span></div>
         <div className="trows">
           {trains.slice(0, 4).map((t) => (
             <div className="trow" key={t[0]}>

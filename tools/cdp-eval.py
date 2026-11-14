@@ -36,6 +36,6 @@ def cmd(method, **params):
 
 cmd("Page.enable"); cmd("Runtime.enable"); cmd("Page.navigate", url=URL)
 time.sleep(10)
-r = cmd("Runtime.evaluate", expression=EXPR, returnByValue=True)
+r = cmd("Runtime.evaluate", expression=EXPR, returnByValue=True, awaitPromise=True)
 print(json.dumps(r.get("result", {}).get("result", {}).get("value"), ensure_ascii=False)[:2000])
 ws.close(); proc.terminate()

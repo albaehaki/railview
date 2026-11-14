@@ -4,7 +4,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const STYLE = "https://tiles.openfreemap.org/styles/dark";
 const PUSAT = [106.86, -6.22];
 
-export function createMap(el, { onTrain } = {}) {
+export function createMap(el, { onTrain, onBus } = {}) {
+  let tj = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
   const viewPusat = [Number(q.get("lng")) || PUSAT[0], Number(q.get("lat")) || PUSAT[1]];
@@ -47,10 +48,10 @@ export function createMap(el, { onTrain } = {}) {
       type: "fill-extrusion",
       source: "openmaptiles",
       "source-layer": "building",
-      minzoom: 13,
+            minzoom: 12.6,
       paint: {
         "fill-extrusion-color": warnaGedung,
-        "fill-extrusion-height": ["coalesce", ["get", "render_height"], ["get", "height"], 10],
+        "fill-extrusion-height": ["*", ["coalesce", ["get", "render_height"], ["get", "height"], 10], 1.9],
         "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
         "fill-extrusion-opacity": 0.92,
       },
@@ -118,6 +119,35 @@ export function createMap(el, { onTrain } = {}) {
       },
     });
 
+    /* bus TransJakarta (langsung dari broker publik TJ) */
+    map.addSource("tj", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({
+      id: "tj-titik",
+      type: "circle",
+      source: "tj",
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.6, 14, 5],
+        "circle-color": ["match", ["get", "tipe"], "Mikrotrans", "#f2a541", "BRT", "#e8562a", "#e8562a"],
+        "circle-opacity": 0.9,
+        "circle-stroke-color": "#120a06",
+        "circle-stroke-width": 0.7,
+      },
+    });
+    map.on("click", "tj-titik", (e) => {
+      const f = e.features?.[0];
+      if (f) new maplibregl.Popup({ closeButton: false, offset: 8 })
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(`<b>${f.properties.rute}</b><br>${f.properties.nama}<br><small>${f.properties.id} · ${f.properties.tipe}</small>`)
+        .addTo(map);
+    });
+
+    import("./tj.js").then(({ sambungTJ }) => {
+      tj = sambungTJ((feats) => {
+        map.getSource("tj")?.setData({ type: "FeatureCollection", features: feats });
+        onBus?.(feats.length);
+      });
+    });
+
     /* jalur kereta terpilih */
     map.addSource("jalur", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({
@@ -177,8 +207,9 @@ export function createMap(el, { onTrain } = {}) {
 
   /* posisi bergerak halus: interpolasi dari posisi lama ke posisi baru tiap 20 dtk */
   const gerak = new Map();
-  const DUR = 20000;
+  let DUR = 10000;
   let t0 = performance.now();
+  let terakhir = 0;
 
   const fKini = () => Math.min(1, (performance.now() - t0) / DUR);
 
@@ -197,6 +228,11 @@ export function createMap(el, { onTrain } = {}) {
 
   function pasang(trains) {
     const f = fKini();
+    const kini = performance.now();
+    /* durasi interpolasi mengikuti jarak antar-permintaan yang sebenarnya,
+       supaya tidak berhenti lalu melompat saat jaringan lambat */
+    if (terakhir) DUR = Math.min(15000, Math.max(4000, (kini - terakhir) * 1.06));
+    terakhir = kini;
     const baru = new Map();
     for (const t of trains) {
       const lama = gerak.get(t[0]);
@@ -208,11 +244,21 @@ export function createMap(el, { onTrain } = {}) {
         p: { id: t[0], kode: t[1], moda: t[2], arah: t[5], next: t[6] },
       });
     }
+    /* kereta yang hilang sesaat tetap ditahan satu putaran agar tidak berkedip */
+    for (const [k, g] of gerak) {
+      if (!baru.has(k) && !g.miss) baru.set(k, { fx: g.tx, fy: g.ty, tx: g.tx, ty: g.ty, p: g.p, miss: 1 });
+    }
     gerak.clear();
     for (const [k, v] of baru) gerak.set(k, v);
     t0 = performance.now();
     gambar();
   }
+
+  /* pemantau gerak (dipakai untuk uji kelancaran) */
+  window.__rv = () => [...gerak.values()].map((g) => {
+    const f = fKini();
+    return [g.fx + (g.tx - g.fx) * f, g.fy + (g.ty - g.fy) * f];
+  });
 
   function keStasiun(stations) {
     return {
@@ -260,6 +306,9 @@ export function createMap(el, { onTrain } = {}) {
     },
     resize() {
       map.resize();
+    },
+    hentikan() {
+      tj?.berhenti();
     },
     map,
   };
