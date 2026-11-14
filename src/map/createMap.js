@@ -175,6 +175,72 @@ function tempelRel(lng, lat) {
       },
     });
 
+    /* jalur rencana & konstruksi (OSM) — garis putus-putus, bisa dimatikan */
+    const WARNA_RENCANA = {
+      "MRT Utara–Selatan": "#4f9cf0", "MRT Timur–Barat": "#c07be0",
+      "Manggarai–Jatinegara": "#e0b04f", "Dwiganda Bekasi–Cikarang": "#5fc7b0",
+      "Terusan Tangerang": "#e07f9c", "LRT Jabodebek": "#8fb85f",
+      "LRT Jakarta 1B": "#d4568f", "Tanjung Priok–Cikarang": "#b9a888",
+      "Cipatat–Sasaksaat": "#9aa0a6", "Rencana lain": "#8c9a84",
+    };
+    const susunRencana = (g) => ["match", ["get", "proyek"], ...Object.entries(WARNA_RENCANA).flat(), "#8c9a84"];
+    fetch("/rencana.geojson?v=1")
+      .then((r) => r.json())
+      .then((g) => {
+        if (map.getSource("rencana")) return;
+        map.addSource("rencana", { type: "geojson", data: g });
+        map.addLayer({
+          id: "rencana-garis",
+          type: "line",
+          source: "rencana",
+          filter: ["==", ["geometry-type"], "LineString"],
+          minzoom: 9.5,
+          layout: { "line-cap": "butt", "line-join": "round" },
+          paint: {
+            "line-color": susunRencana(),
+            "line-width": ["interpolate", ["linear"], ["zoom"], 9.5, 1.2, 13, 2.2, 16, 3],
+            "line-dasharray": [2, 2],
+            "line-opacity": 0.85,
+          },
+        });
+        map.addLayer({
+          id: "rencana-stasiun",
+          type: "circle",
+          source: "rencana",
+          filter: ["==", ["geometry-type"], "Point"],
+          minzoom: 10.5,
+          paint: {
+            "circle-radius": ["interpolate", ["linear"], ["zoom"], 10.5, 2.6, 14, 4.4],
+            "circle-color": "#050705",
+            "circle-stroke-color": susunRencana(),
+            "circle-stroke-width": 1.6,
+          },
+        });
+        map.addLayer({
+          id: "rencana-nama",
+          type: "symbol",
+          source: "rencana",
+          filter: ["==", ["geometry-type"], "Point"],
+          minzoom: 12.5,
+          layout: {
+            "text-field": ["get", "nama"],
+            "text-font": ["Noto Sans Regular"],
+            "text-size": 9.5,
+            "text-offset": [0, 1.15],
+            "text-anchor": "top",
+            "text-padding": 3,
+          },
+          paint: { "text-color": "#9fb094", "text-halo-color": "#050705", "text-halo-width": 1.2 },
+        });
+      })
+      .catch(() => {});
+
+    window.__setRencana = (v) => {
+      for (const id of ["rencana-garis", "rencana-stasiun", "rencana-nama"]) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
+      }
+    };
+
     /* stasiun lengkap dari OSM (158 titik) — data 168railway cuma 85 dan banyak di luar Jabodetabek */
     for (const id of ["stasiun-titik", "stasiun-ikon", "stasiun-nama"]) {
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", "none");
