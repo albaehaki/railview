@@ -66,10 +66,10 @@ export function createMap(el, { onTrain } = {}) {
       type: "circle",
       source: "stasiun",
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 2, 13, 4],
-        "circle-color": "#e6ece1",
-        "circle-stroke-color": "#0b0f0b",
-        "circle-stroke-width": 1,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 1.6, 13, 3],
+        "circle-color": "rgba(0,0,0,0)",
+        "circle-stroke-color": "#9fb3c8",
+        "circle-stroke-width": 1.2,
       },
     });
     map.addLayer({
@@ -98,7 +98,9 @@ export function createMap(el, { onTrain } = {}) {
       source: "kereta",
       paint: {
         "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 7, 13, 12],
-        "circle-color": ["match", ["get", "tipe"], 1, "#d9a24b", 2, "#58a874", "#e6ece1"],
+        "circle-color": ["match", ["get", "moda"],
+          "K", "#58a874", "M", "#e0524a", "L", "#4a86e0", "J", "#d969b0",
+          "W", "#9b6bd6", "A", "#e6ece1", "B", "#d9a24b", "#8b978a"],
         "circle-opacity": 0.16,
       },
     });
@@ -107,10 +109,12 @@ export function createMap(el, { onTrain } = {}) {
       type: "circle",
       source: "kereta",
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3.6, 13, 6],
-        "circle-color": ["match", ["get", "tipe"], 1, "#d9a24b", 2, "#58a874", "#e6ece1"],
-        "circle-stroke-color": "#050705",
-        "circle-stroke-width": 0.8,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 13, 7],
+        "circle-color": ["match", ["get", "moda"],
+          "K", "#58a874", "M", "#e0524a", "L", "#4a86e0", "J", "#d969b0",
+          "W", "#9b6bd6", "A", "#e6ece1", "B", "#d9a24b", "#8b978a"],
+        "circle-stroke-color": "#f2f6ee",
+        "circle-stroke-width": 1.1,
       },
     });
 
@@ -123,6 +127,27 @@ export function createMap(el, { onTrain } = {}) {
       paint: { "line-color": "#d9a24b", "line-width": 2.4, "line-opacity": 0.9, "line-dasharray": [2, 1.4] },
     });
 
+    /* garis rel asli dari OSM, dimuat setelah peta siap supaya tidak menahan loading */
+    const muatRel = async () => {
+      if (map.getSource("rel")) return;
+      try {
+        const g = await fetch("/rel.geojson").then((r) => r.json());
+        if (!map.getSource("rel")) {
+          map.addSource("rel", { type: "geojson", data: g });
+          map.addLayer({
+            id: "rel-garis",
+            type: "line",
+            source: "rel",
+            paint: { "line-color": "#7d8b6f", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1, 14, 2.6], "line-opacity": 0.9 },
+          }, "kereta-halo");
+        }
+      } catch (e) {
+        console.warn("rel gagal dimuat", e);
+      }
+    };
+    if (map.getZoom() >= 11) muatRel();
+    else map.once("zoomend", () => { if (map.getZoom() >= 11) muatRel(); });
+
     map.on("click", "kereta-titik", (e) => {
       const f = e.features?.[0];
       if (f && onTrain) onTrain(f.properties);
@@ -131,9 +156,10 @@ export function createMap(el, { onTrain } = {}) {
     map.on("mouseleave", "kereta-titik", () => (map.getCanvas().style.cursor = ""));
 
     siap = true;
-    if (antre.trains) map.getSource("kereta")?.setData(keGeo(antre.trains));
+    if (antre.trains) pasang(antre.trains);
     if (antre.stations) map.getSource("stasiun")?.setData(keStasiun(antre.stations));
     if (antre.jalur) map.getSource("jalur")?.setData(keJalur(antre.jalur));
+    setInterval(() => { if (siap) gambar(); }, 250);
   });
 
   if (import.meta.env.DEV) window.__diag = () => {
@@ -142,19 +168,50 @@ export function createMap(el, { onTrain } = {}) {
     return {
       loaded: map.loaded(), zoom: Number(map.getZoom().toFixed(2)), siap,
       srcKereta: q("kereta"), srcStasiun: q("stasiun"),
-      rGedung: n("gedung-3d"), rStasiun: n("stasiun-titik"), rKereta: n("kereta-titik"),
+      rGedung: n("gedung-3d"), rStasiun: n("stasiun-titik"), rKereta: n("kereta-titik"), rel: !!map.getLayer("rel-garis"),
+      contoh: (() => { const f = map.querySourceFeatures("kereta")[0]; return f ? f.geometry.coordinates.map((v) => +v.toFixed(6)) : null; })(),
+      gerak: gerak.size, f: +fKini().toFixed(3),
+      satu: (() => { const e = gerak.values().next().value; return e ? [e.fx, e.fy, e.tx, e.ty] : null; })(),
     };
   };
 
-  function keGeo(trains) {
-    return {
-      type: "FeatureCollection",
-      features: trains.map((t) => ({
+  /* posisi bergerak halus: interpolasi dari posisi lama ke posisi baru tiap 20 dtk */
+  const gerak = new Map();
+  const DUR = 20000;
+  let t0 = performance.now();
+
+  const fKini = () => Math.min(1, (performance.now() - t0) / DUR);
+
+  function gambar() {
+    const f = fKini();
+    const feats = [];
+    for (const [, g] of gerak) {
+      feats.push({
         type: "Feature",
-        geometry: { type: "Point", coordinates: [t[4], t[3]] },
-        properties: { id: t[0], kode: t[1], tipe: t[2], arah: t[5], next: t[6] },
-      })),
-    };
+        geometry: { type: "Point", coordinates: [g.fx + (g.tx - g.fx) * f, g.fy + (g.ty - g.fy) * f] },
+        properties: g.p,
+      });
+    }
+    map.getSource("kereta")?.setData({ type: "FeatureCollection", features: feats });
+  }
+
+  function pasang(trains) {
+    const f = fKini();
+    const baru = new Map();
+    for (const t of trains) {
+      const lama = gerak.get(t[0]);
+      baru.set(t[0], {
+        fx: lama ? lama.fx + (lama.tx - lama.fx) * f : t[4],
+        fy: lama ? lama.fy + (lama.ty - lama.fy) * f : t[3],
+        tx: t[4],
+        ty: t[3],
+        p: { id: t[0], kode: t[1], moda: t[2], arah: t[5], next: t[6] },
+      });
+    }
+    gerak.clear();
+    for (const [k, v] of baru) gerak.set(k, v);
+    t0 = performance.now();
+    gambar();
   }
 
   function keStasiun(stations) {
@@ -181,7 +238,7 @@ export function createMap(el, { onTrain } = {}) {
   return {
     setTrains(trains) {
       antre.trains = trains;
-      if (siap) map.getSource("kereta")?.setData(keGeo(trains));
+      if (siap) pasang(trains);
     },
     setStations(stations) {
       antre.stations = stations;

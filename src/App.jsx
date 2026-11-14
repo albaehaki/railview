@@ -23,7 +23,8 @@ const acak = () => {
   return { low: hsl(hue, 14, 14), mid: hsl(hue, 15, 19), high: hsl(hue, 16, 24) };
 };
 
-const TIPE = ["antarkota", "barang", "KRL"];
+const MODA = { K: "KRL", M: "MRT", L: "LRT Jabodebek", J: "LRT Jakarta", W: "Whoosh", A: "antarkota", B: "barang" };
+const WARNA_MODA = { K: "#58a874", M: "#e0524a", L: "#4a86e0", J: "#d969b0", W: "#9b6bd6", A: "#e6ece1", B: "#d9a24b" };
 
 export default function App() {
   const boxRef = useRef(null);
@@ -71,7 +72,7 @@ export default function App() {
           if (!hidup) return;
           if (j && j.jalur) {
             setJalur(j);
-            mapRef.current?.setJalur(j.jalur);
+            mapRef.current?.setJalur(j.garis || j.jalur);
             const last = j.jalur[0];
             if (last) mapRef.current?.flyKe(last.lng, last.lat, 12.4);
           }
@@ -165,7 +166,7 @@ export default function App() {
     setPreset(p.id);
   };
 
-  const jumlah = (tipe) => trains.filter((t) => t[2] === tipe).length;
+  const jumlah = (m) => trains.filter((t) => t[2] === m).length;
   const petaNama = new Map(stations.map((s) => [s[0], s[1]]));
   const namaSt = (k) => petaNama.get(k) || k || "—";
   const sisaJalur = jalur ? jalur.jalur.filter((p) => p.st !== jalur.jalur[0].st).slice(0, 6) : [];
@@ -193,10 +194,13 @@ export default function App() {
 
         <div>
           <div className="label">Lapisan</div>
-          <div className="layer t on"><span className="sw" />Kereta antarkota<span className="n">{jumlah(0)}</span></div>
-          <div className="layer b on"><span className="sw" />Kereta barang<span className="n">{jumlah(1)}</span></div>
-          <div className="layer k on"><span className="sw" />KRL Jabodetabek<span className="n">{jumlah(2)}</span></div>
-          <div className="layer c on"><span className="sw" />Kamera CCTV<span className="n">266</span></div>
+          {["K", "M", "L", "J", "W", "A", "B"].map((m) => (
+            <div className="layer on" key={m}>
+              <span className="sw" style={{ background: WARNA_MODA[m] }} />
+              {MODA[m]}
+              <span className="n">{jumlah(m)}</span>
+            </div>
+          ))}
         </div>
 
         <div>
@@ -234,9 +238,9 @@ export default function App() {
         <div>
           <div className="label">Keterangan</div>
           <div className="legend">
-            <span><i style={{ background: "#E6ECE1" }} />kereta antarkota</span>
-            <span><i style={{ background: "#D9A24B" }} />kereta barang</span>
-            <span><i style={{ background: "#58A874" }} />KRL jabodetabek</span>
+            {["K", "M", "L", "J", "W"].map((m) => (
+              <span key={m}><i style={{ background: WARNA_MODA[m] }} />{MODA[m]}</span>
+            ))}
             <span><i style={{ background: "#8FA7C4" }} />stasiun</span>
           </div>
         </div>
@@ -300,7 +304,7 @@ export default function App() {
         ) : (
           <div className="pane">
             <div className="phead">
-              <div className="eyebrow">kereta · {pilih ? TIPE[pilih.tipe] || "antarkota" : "pilih di peta"} <em>berjalan</em></div>
+              <div className="eyebrow">kereta · {pilih ? MODA[pilih.moda] || "antarkota" : "pilih di peta"} <em>berjalan</em></div>
               <h1>{pilih ? pilih.kode : "Belum ada kereta dipilih"}</h1>
               <div className="sub">
                 {jalur ? `${jalur.relasi || "—"} · ${jalur.jalur.length} titik jalur` : "klik titik kereta di peta untuk melihat jalurnya"}
@@ -347,7 +351,7 @@ export default function App() {
           {trains.slice(0, 4).map((t) => (
             <div className="trow" key={t[0]}>
               <span className="t">{t[1]}</span>
-              <span className="n">{TIPE[t[2]] || "KA"}</span>
+              <span className="n">{MODA[t[2]] || "KA"}</span>
               <span className="r">menuju {namaSt(t[6])}</span>
               <span className="st">{t[5]}°</span>
             </div>
