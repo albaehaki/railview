@@ -46,11 +46,13 @@ export default function App() {
   const [kamera, setKamera] = useState(null);
   const [daftarKamera, setDaftarKamera] = useState([]);
   const videoRef = useRef(null);
+  const daftarRef = useRef([]);
   const sempit = typeof window !== "undefined" && window.innerWidth < 900;
   const paksaFokus = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("fokus");
   const [kiri, setKiri] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-kiri") !== "0"));
   const [kanan, setKanan] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-kanan") !== "0"));
-  const [bawah, setBawah] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-bawah") !== "0"));
+  const paksaBawah = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("bawah") === "1";
+  const [bawah, setBawah] = useState(() => (paksaBawah ? true : sempit || paksaFokus ? false : localStorage.getItem("rv-bawah") !== "0"));
 
   /* simpan pilihan panel + tombol fokus (H) */
   useEffect(() => { localStorage.setItem("rv-kiri", kiri ? "1" : "0"); }, [kiri]);
@@ -83,6 +85,7 @@ export default function App() {
         if (!hidup) return;
         const semua = d.kamera || [];
         if (!semua.length) throw new Error("kosong");
+        daftarRef.current = semua;
         setDaftarKamera(semua);
         setKamera(semua.find((k) => k.jenis === "iframe" && k.hidup !== false) || semua.find((k) => k.hidup !== false) || semua[0]);
       } catch {
@@ -150,6 +153,14 @@ export default function App() {
 
       const map = createMap(boxRef.current, {
         onBus: (n) => setBus(n),
+        onKamera: (nama) => {
+          const k = daftarRef.current.find((x) => x.nama === nama);
+          if (!k) return;
+          setKamera(k);
+          setTab("kamera");
+          setKanan(true);
+          if (k.lat && k.lng) mapRef.current?.flyKe(k.lng, k.lat, 14);
+        },
         onTrain: async (props) => {
           setPilih(props);
           setTab("kereta");
@@ -475,8 +486,8 @@ export default function App() {
       </aside>
 
       <footer className="ticker">
-        <button className="lipat lipat-bawah" onClick={() => setBawah((v) => !v)} title={bawah ? "Sembunyikan daftar kereta" : "Tampilkan daftar kereta"}>
-          {bawah ? "⌄" : "⌃"}
+        <button className="lipat-bawah" onClick={() => setBawah(false)} title="Sembunyikan daftar kereta">
+          sembunyikan ⌄
         </button>
         <div className="thead"><span>kereta berjalan sekarang</span><span>·</span><span>10 detik</span></div>
         <div className="trows">
@@ -491,6 +502,12 @@ export default function App() {
           {trains.length === 0 && <div className="trow"><span className="r">menunggu data…</span></div>}
         </div>
       </footer>
+
+      {!bawah && (
+        <button className="buka-bawah" onClick={() => setBawah(true)} title="Tampilkan daftar kereta">
+          daftar kereta ⌃
+        </button>
+      )}
     </div>
   );
 }

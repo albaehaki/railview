@@ -4,7 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const STYLE = "https://tiles.openfreemap.org/styles/dark";
 const PUSAT = [106.86, -6.22];
 
-export function createMap(el, { onTrain, onBus } = {}) {
+export function createMap(el, { onTrain, onBus, onKamera } = {}) {
   let tj = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
@@ -40,6 +40,60 @@ export function createMap(el, { onTrain, onBus } = {}) {
   let warnaGedung = exprWarna({ low: "#252d20", mid: "#2f3728", high: "#3a4432" });
   let siap = false;
   const antre = { trains: null, stations: null, jalur: null };
+
+/* ── penempel posisi ke rel (biar kereta tidak keluar jalur) ── */
+const relSeg = new Map();
+const SEL = 0.005; // ±550 m per sel
+let relSiap = false;
+
+function indeksRel(g) {
+  for (const f of g.features || []) {
+    const gm = f.geometry;
+    if (!gm || (gm.type !== "LineString" && gm.type !== "MultiLineString")) continue;
+    const garis = gm.type === "MultiLineString" ? gm.coordinates : [gm.coordinates];
+    for (const ln of garis) {
+      for (let i = 0; i < ln.length - 1; i++) {
+        const [x1, y1] = ln[i];
+        const [x2, y2] = ln[i + 1];
+        if (!Number.isFinite(x1) || !Number.isFinite(y1)) continue;
+        const a1 = Math.floor(x1 / SEL), a2 = Math.floor(x2 / SEL);
+        const b1 = Math.floor(y1 / SEL), b2 = Math.floor(y2 / SEL);
+        const s = [x1, y1, x2, y2];
+        for (let a = Math.min(a1, a2); a <= Math.max(a1, a2); a++) {
+          for (let b = Math.min(b1, b2); b <= Math.max(b1, b2); b++) {
+            const k = a + "," + b;
+            let arr = relSeg.get(k);
+            if (!arr) relSeg.set(k, (arr = []));
+            arr.push(s);
+          }
+        }
+      }
+    }
+  }
+  relSiap = relSeg.size > 0;
+}
+
+function tempelRel(lng, lat) {
+  if (!relSiap) return null;
+  const cx = Math.floor(lng / SEL), cy = Math.floor(lat / SEL);
+  let px = null, py = null, bd = Infinity;
+  for (let i = -1; i <= 1; i++) {
+    for (let j = -1; j <= 1; j++) {
+      const arr = relSeg.get(cx + i + "," + (cy + j));
+      if (!arr) continue;
+      for (const s of arr) {
+        const dx = s[2] - s[0], dy = s[3] - s[1];
+        const l2 = dx * dx + dy * dy || 1e-12;
+        let t = ((lng - s[0]) * dx + (lat - s[1]) * dy) / l2;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const qx = s[0] + dx * t, qy = s[1] + dy * t;
+        const d = (qx - lng) ** 2 + (qy - lat) ** 2;
+        if (d < bd) { bd = d; px = qx; py = qy; }
+      }
+    }
+  }
+  return bd < 1.6e-6 ? [px, py] : null; // ±120 m
+}
 
   map.on("load", () => {
     /* gedung 3D */
@@ -88,6 +142,39 @@ export function createMap(el, { onTrain, onBus } = {}) {
       paint: { "text-color": "#c9d3c4", "text-halo-color": "#060906", "text-halo-width": 1.4 },
     });
 
+    /* ikon stasiun (kotak kecil bergaya papan nama) */
+    if (!map.hasImage("stasiun-ikon")) {
+      const s = 28;
+      const c = document.createElement("canvas");
+      c.width = c.height = s;
+      const x = c.getContext("2d");
+      x.fillStyle = "#0a0f0a";
+      x.strokeStyle = "#cfd8cb";
+      x.lineWidth = 2;
+      x.beginPath();
+      x.roundRect(4, 4, 20, 20, 3);
+      x.fill();
+      x.stroke();
+      x.fillStyle = "#cfd8cb";
+      x.fillRect(8, 9, 12, 2.2);
+      x.fillRect(9, 13, 10, 1.6);
+      x.beginPath();
+      x.arc(11, 18, 1.7, 0, Math.PI * 2);
+      x.arc(17, 18, 1.7, 0, Math.PI * 2);
+      x.fill();
+      map.addImage("stasiun-ikon", x.getImageData(0, 0, s, s), { pixelRatio: 2 });
+    }
+    map.addLayer({
+      id: "stasiun-ikon",
+      type: "symbol",
+      source: "stasiun",
+      layout: {
+        "icon-image": "stasiun-ikon",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.34, 13, 0.66],
+        "icon-allow-overlap": true,
+      },
+    });
+
     /* kereta */
     map.addSource("kereta", {
       type: "geojson",
@@ -118,6 +205,59 @@ export function createMap(el, { onTrain, onBus } = {}) {
         "circle-stroke-width": 1.1,
       },
     });
+
+    /* kamera CCTV publik di peta */
+    if (!map.hasImage("kamera-ikon")) {
+      const s = 26;
+      const c = document.createElement("canvas");
+      c.width = c.height = s;
+      const x = c.getContext("2d");
+      x.fillStyle = "#20180a";
+      x.strokeStyle = "#d9a24b";
+      x.lineWidth = 2;
+      x.beginPath();
+      x.roundRect(3, 6, 20, 14, 3);
+      x.fill();
+      x.stroke();
+      x.fillStyle = "#d9a24b";
+      x.beginPath();
+      x.arc(9, 13, 3.4, 0, Math.PI * 2);
+      x.fill();
+      x.fillRect(14, 11, 6, 4);
+      map.addImage("kamera-ikon", x.getImageData(0, 0, s, s), { pixelRatio: 2 });
+    }
+    map.addSource("kamera", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({
+      id: "kamera-ikon",
+      type: "symbol",
+      source: "kamera",
+      minzoom: 9.5,
+      layout: {
+        "icon-image": "kamera-ikon",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.36, 14, 0.7],
+        "icon-allow-overlap": true,
+      },
+    });
+    map.on("click", "kamera-ikon", (e) => {
+      const f = e.features?.[0];
+      if (f && onKamera) onKamera(f.properties.nama);
+    });
+    map.on("mouseenter", "kamera-ikon", () => (map.getCanvas().style.cursor = "pointer"));
+    map.on("mouseleave", "kamera-ikon", () => (map.getCanvas().style.cursor = ""));
+
+    fetch(`/api/cctv?what=peta&t=${Date.now()}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const feats = (d.kamera || [])
+          .filter((k) => k.lat && k.lng)
+          .map((k) => ({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [k.lng, k.lat] },
+            properties: { nama: k.nama, judul: k.judul },
+          }));
+        map.getSource("kamera")?.setData({ type: "FeatureCollection", features: feats });
+      })
+      .catch(() => {});
 
     /* bus TransJakarta (langsung dari broker publik TJ) */
     map.addSource("tj", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -161,7 +301,7 @@ export function createMap(el, { onTrain, onBus } = {}) {
     const muatRel = async () => {
       if (map.getSource("rel")) return;
       try {
-        const g = await fetch("/rel.geojson").then((r) => r.json());
+        const g = await fetch("/rel.geojson?v=3").then((r) => r.json());
         if (!map.getSource("rel")) {
           map.addSource("rel", { type: "geojson", data: g });
           map.addLayer({
@@ -170,13 +310,14 @@ export function createMap(el, { onTrain, onBus } = {}) {
             source: "rel",
             paint: { "line-color": "#7d8b6f", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1, 14, 2.6], "line-opacity": 0.9 },
           }, "kereta-halo");
+          indeksRel(g);
         }
       } catch (e) {
         console.warn("rel gagal dimuat", e);
       }
     };
-    if (map.getZoom() >= 11) muatRel();
-    else map.once("zoomend", () => { if (map.getZoom() >= 11) muatRel(); });
+    setTimeout(muatRel, 1200);
+    map.once("zoomend", () => { if (map.getZoom() >= 11) muatRel(); });
 
     map.on("click", "kereta-titik", (e) => {
       const f = e.features?.[0];
@@ -217,11 +358,11 @@ export function createMap(el, { onTrain, onBus } = {}) {
     const f = fKini();
     const feats = [];
     for (const [, g] of gerak) {
-      feats.push({
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [g.fx + (g.tx - g.fx) * f, g.fy + (g.ty - g.fy) * f] },
-        properties: g.p,
-      });
+      let x = g.fx + (g.tx - g.fx) * f;
+      let y = g.fy + (g.ty - g.fy) * f;
+      const p = tempelRel(x, y);
+      if (p) { x = p[0]; y = p[1]; }
+      feats.push({ type: "Feature", geometry: { type: "Point", coordinates: [x, y] }, properties: g.p });
     }
     map.getSource("kereta")?.setData({ type: "FeatureCollection", features: feats });
   }
@@ -253,6 +394,18 @@ export function createMap(el, { onTrain, onBus } = {}) {
     t0 = performance.now();
     gambar();
   }
+
+  /* pemeriksa lapisan (dipakai untuk uji tampilan) */
+  window.__rvInfo = () => {
+    const n = (id) => { try { return map.queryRenderedFeatures({ layers: [id] }).length; } catch (e) { return -1; } };
+    return {
+      ikonStasiun: map.hasImage("stasiun-ikon"), ikonKamera: map.hasImage("kamera-ikon"),
+      tampilStasiun: n("stasiun-ikon"), tampilKamera: n("kamera-ikon"),
+      dataStasiun: map.querySourceFeatures("stasiun").length, dataKamera: map.querySourceFeatures("kamera").length,
+      relSiap: relSeg.size > 0, zoom: +map.getZoom().toFixed(2),
+      loaded: map.loaded(), gayaSiap: map.isStyleLoaded(), lapis: (map.getStyle()?.layers || []).length, siap,
+    };
+  };
 
   /* pemantau gerak (dipakai untuk uji kelancaran) */
   window.__rv = () => [...gerak.values()].map((g) => {

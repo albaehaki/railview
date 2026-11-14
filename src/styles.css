@@ -284,7 +284,19 @@ body {
 .app.bawah-tutup .ticker { transform: translateY(100%); }
 .app.bawah-tutup .panel { bottom: 0; }
 .lipat-bawah {
-  left: auto; right: 14px; top: -17px; width: 40px; height: 17px;
-  transform: none; border-bottom: 0; font-size: 10px;
+  position: absolute; right: 12px; top: 7px; z-index: 6;
+  height: 20px; padding: 0 8px; background: #0f140e; color: var(--dim);
+  border: 1px solid var(--line2); font-family: "IBM Plex Mono", monospace;
+  font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
 }
+.lipat-bawah:hover { color: var(--ink); border-color: #46543f; }
+.buka-bawah {
+  position: absolute; right: 14px; bottom: 14px; z-index: 6;
+  height: 24px; padding: 0 10px; background: rgba(8,11,8,.92); color: var(--muted);
+  border: 1px solid var(--line2); font-family: "IBM Plex Mono", monospace;
+  font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+}
+.buka-bawah:hover { color: var(--ink); border-color: #46543f; }
+/* badge Netlify (disuntik otomatis) menutupi ticker — disembunyikan */
+#nl-badge-frame { display: none !important; }
 @media (max-width: 900px) { .lipat-bawah { display: none; } }
