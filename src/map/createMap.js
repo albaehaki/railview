@@ -312,6 +312,18 @@ function tempelRel(lng, lat) {
           }, "kereta-halo");
           indeksRel(g);
         }
+        /* LRT Jakarta (Velodrome–Manggarai) — jalurnya belum ada di rel.geojson */
+        const l = await fetch("/lrt-jakarta.geojson?v=1").then((r) => r.json()).catch(() => null);
+        if (l && !map.getSource("rel-lrtj")) {
+          map.addSource("rel-lrtj", { type: "geojson", data: l });
+          map.addLayer({
+            id: "rel-lrtj-garis",
+            type: "line",
+            source: "rel-lrtj",
+            paint: { "line-color": "#d4568f", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.2, 15, 2.8], "line-opacity": 0.95 },
+          }, "kereta-halo");
+          indeksRel(l);
+        }
       } catch (e) {
         console.warn("rel gagal dimuat", e);
       }
@@ -330,7 +342,7 @@ function tempelRel(lng, lat) {
     if (antre.trains) pasang(antre.trains);
     if (antre.stations) map.getSource("stasiun")?.setData(keStasiun(antre.stations));
     if (antre.jalur) map.getSource("jalur")?.setData(keJalur(antre.jalur));
-    setInterval(() => { if (siap) gambar(); }, 250);
+    setInterval(() => { if (siap && !document.hidden) gambar(); }, 250);
   });
 
   if (import.meta.env.DEV) window.__diag = () => {
@@ -354,14 +366,44 @@ function tempelRel(lng, lat) {
 
   const fKini = () => Math.min(1, (performance.now() - t0) / DUR);
 
+  function bangunPita(g) {
+    const N = 5, titik = [];
+    for (let i = 0; i < N; i++) {
+      const t = i / (N - 1);
+      const x0 = g.fx + (g.tx - g.fx) * t;
+      const y0 = g.fy + (g.ty - g.fy) * t;
+      const s = tempelRel(x0, y0);
+      titik.push(s || [x0, y0]);
+    }
+    const panjang = [];
+    let total = 0;
+    for (let i = 1; i < titik.length; i++) {
+      const d = Math.hypot(titik[i][0] - titik[i - 1][0], titik[i][1] - titik[i - 1][1]);
+      panjang.push(d); total += d;
+    }
+    g.pita = { titik, panjang, total: total || 1e-9 };
+  }
+
+  function titikPita(g, f) {
+    const { titik, panjang, total } = g.pita;
+    let sisa = Math.min(1, Math.max(0, f)) * total;
+    for (let i = 0; i < panjang.length; i++) {
+      if (sisa <= panjang[i] || i === panjang.length - 1) {
+        const k = panjang[i] ? Math.min(1, sisa / panjang[i]) : 0;
+        return [titik[i][0] + (titik[i + 1][0] - titik[i][0]) * k, titik[i][1] + (titik[i + 1][1] - titik[i][1]) * k];
+      }
+      sisa -= panjang[i];
+    }
+    return titik[titik.length - 1];
+  }
+
   function gambar() {
     const f = fKini();
     const feats = [];
     for (const [, g] of gerak) {
-      let x = g.fx + (g.tx - g.fx) * f;
-      let y = g.fy + (g.ty - g.fy) * f;
-      const p = tempelRel(x, y);
-      if (p) { x = p[0]; y = p[1]; }
+      /* tempel ke rel sekali per data baru: 5 titik sampel, lalu gerak mengikuti polinya */
+      if (relSiap && !g.pita) bangunPita(g);
+      const [x, y] = g.pita ? titikPita(g, f) : [g.fx + (g.tx - g.fx) * f, g.fy + (g.ty - g.fy) * f];
       feats.push({ type: "Feature", geometry: { type: "Point", coordinates: [x, y] }, properties: g.p });
     }
     map.getSource("kereta")?.setData({ type: "FeatureCollection", features: feats });
