@@ -296,6 +296,7 @@ export default function App() {
       </button>
 
       <aside className="rail">
+        <button className="tutup-drawer" onClick={() => setKiri(false)} aria-label="tutup panel kiri">×</button>
         <div>
           <div className="search">
             <input placeholder="cari kereta, stasiun, kamera" aria-label="cari" />
@@ -387,11 +388,14 @@ export default function App() {
         </div>
       </main>
 
+      {kiri && <div className="tirai" onClick={() => setKiri(false)} />}
+
       <button className="lipat lipat-kanan" onClick={() => setKanan((v) => !v)} title={kanan ? "Sembunyikan panel kanan" : "Tampilkan panel kanan"}>
         {kanan ? "›" : "‹"}
       </button>
 
       <aside className="panel">
+        <button className="tutup-panel" onClick={() => setKanan(false)} aria-label="tutup panel kanan">×</button>
         <div className="ptabs">
           <button className={"ptab" + (tab === "kamera" ? " on" : "")} onClick={() => setTab("kamera")}>kamera</button>
           <button className={"ptab" + (tab === "kereta" ? " on" : "")} onClick={() => setTab("kereta")}>kereta</button>

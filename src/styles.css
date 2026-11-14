@@ -23,7 +23,7 @@ body {
   overflow: hidden;
 }
 
-.app { position: relative; height: 100vh; overflow: hidden; }
+.app { position: relative; height: 100vh; height: 100dvh; overflow: hidden; }
 
 /* ── bar atas ── */
 .topbar {
@@ -182,19 +182,35 @@ body {
   .topbar { height: 48px; padding: 0 12px; gap: 10px; }
   .brand i, .crumbs { display: none; }
   .meta span:nth-child(3) { display: none; }
-  .stage { top: 48px; }
-  .rail {
-    top: 48px; width: 100%; right: 0; bottom: auto; height: 118px; flex-direction: row; align-items: flex-start;
-    border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; gap: 14px;
-  }
-  .rail > div { min-width: 168px; }
-  .rail .note { display: none; }
-  .panel { top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 54vh; border-left: 0; border-top: 1px solid var(--line2); z-index: 6; box-shadow: 0 -18px 40px rgba(0, 0, 0, .55); }
+
+  /* peta memakai seluruh layar */
+  .stage { top: 48px; bottom: 0; }
+  .stagefoot { left: 12px; bottom: 12px; }
+  .mapchrome { left: 12px; bottom: auto; top: 60px; }
   .ticker { display: none; }
-  .stage { bottom: 54vh; }
-  .mapchrome { left: 14px; bottom: auto; top: 190px; }
-  .stagefoot { left: 12px; bottom: calc(54vh + 12px); }
   .hint { display: none; }
+
+  /* panel kiri: laci penuh dari tepi kiri */
+  .rail {
+    top: 48px; left: 0; right: auto; bottom: 0; width: min(280px, 84vw); height: auto;
+    flex-direction: column; align-items: stretch; gap: 18px;
+    border-right: 1px solid var(--line); border-bottom: 0;
+    overflow-y: auto; overflow-x: hidden; padding-top: 54px; z-index: 6;
+    box-shadow: 0 0 30px rgba(0,0,0,.65);
+  }
+  .rail > div { min-width: 0; }
+  .rail .note { display: block; }
+
+  /* panel kanan: lembar bawah */
+  .panel {
+    top: auto; left: 0; right: 0; bottom: 0; width: auto; height: 46vh;
+    border-left: 0; border-top: 1px solid var(--line2); z-index: 6;
+    box-shadow: 0 -18px 40px rgba(0, 0, 0, .55);
+  }
+  .app.kanan-tutup .panel { transform: translateY(100%); }
+
+  .lipat-kanan { top: auto; bottom: 12px; right: 12px; transform: none; width: 22px; height: 40px; }
+  .app.kanan-tutup .lipat-kanan { right: 12px; }
 }
 
 /* ── peta ── */
@@ -316,3 +332,42 @@ body {
 .maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: #0b0f0a !important; }
 .maplibregl-popup-anchor-left .maplibregl-popup-tip { border-right-color: #0b0f0a !important; }
 .maplibregl-popup-anchor-right .maplibregl-popup-tip { border-left-color: #0b0f0a !important; }
+
+/* ── tombol tutup untuk layar sentuh ── */
+.tutup-drawer, .tutup-panel { display: none; }
+.tirai { display: none; }
+@media (max-width: 900px) {
+  .tirai {
+    display: block; position: absolute; top: 54px; left: 0; right: 0; bottom: 0;
+    z-index: 3; background: rgba(0, 0, 0, .5);
+  }
+  .tutup-drawer {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 8px; right: 8px; z-index: 7;
+    width: 36px; height: 36px; padding: 0; border-radius: 5px;
+    background: #182018; color: var(--ink); border: 1px solid #3a4834;
+    font-size: 20px; line-height: 1; cursor: pointer;
+  }
+  .tutup-panel {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; top: 6px; right: 6px; z-index: 7;
+    width: 32px; height: 32px; padding: 0; border-radius: 5px;
+    background: #182018; color: var(--ink); border: 1px solid #3a4834;
+    font-size: 18px; line-height: 1; cursor: pointer;
+  }
+  .ptabs { padding-right: 46px; }
+  .rail { padding-top: 52px; }
+  .lipat { width: 26px; height: 64px; font-size: 15px; }
+}
+
+/* ── penimpa mobile (ditaruh paling akhir supaya menang urutan) ── */
+@media (max-width: 900px) {
+  .rail { transform: none; }
+  .app.kiri-tutup .rail { transform: translateX(-100%); }
+  .app.kanan-tutup .panel { transform: translateY(100%); }
+  .app:not(.kanan-tutup) .panel { transform: none; }
+  .lipat { top: auto; bottom: 12px; transform: none; width: 24px; height: 40px; font-size: 15px; }
+  .lipat-kiri { left: 0; top: 50%; bottom: auto; transform: translateY(-50%); }
+  .lipat-kanan { right: 0; bottom: 12px; }
+  .rail { padding-top: 54px; }
+}
