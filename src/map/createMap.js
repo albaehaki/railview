@@ -58,7 +58,7 @@ function indeksRel(g) {
         if (!Number.isFinite(x1) || !Number.isFinite(y1)) continue;
         const a1 = Math.floor(x1 / SEL), a2 = Math.floor(x2 / SEL);
         const b1 = Math.floor(y1 / SEL), b2 = Math.floor(y2 / SEL);
-        const s = [x1, y1, x2, y2];
+        const s = [x1, y1, x2, y2, f.properties?.j || "rail"];
         for (let a = Math.min(a1, a2); a <= Math.max(a1, a2); a++) {
           for (let b = Math.min(b1, b2); b <= Math.max(b1, b2); b++) {
             const k = a + "," + b;
@@ -73,10 +73,13 @@ function indeksRel(g) {
   relSiap = relSeg.size > 0;
 }
 
-function tempelRel(lng, lat) {
+const JENIS_MODA = { K: "rail", M: "subway", L: "light_rail", W: "rail", A: "rail", B: "rail" };
+
+function tempelRel(lng, lat, jenis) {
   if (!relSiap) return null;
   const cx = Math.floor(lng / SEL), cy = Math.floor(lat / SEL);
   let px = null, py = null, bd = Infinity;
+  let qx2 = null, qy2 = null, bd2 = Infinity;
   for (let i = -1; i <= 1; i++) {
     for (let j = -1; j <= 1; j++) {
       const arr = relSeg.get(cx + i + "," + (cy + j));
@@ -89,10 +92,12 @@ function tempelRel(lng, lat) {
         const qx = s[0] + dx * t, qy = s[1] + dy * t;
         const d = (qx - lng) ** 2 + (qy - lat) ** 2;
         if (d < bd) { bd = d; px = qx; py = qy; }
+        if (!jenis || s[4] === jenis) { if (d < bd2) { bd2 = d; qx2 = qx; qy2 = qy; } }
       }
     }
   }
-  return bd < 1.6e-6 ? [px, py] : null; // ±120 m
+  if (jenis && bd2 < 1.6e-6) return [qx2, qy2];       // jenis yang cocok (KRL/LRT/MRT)
+  return bd < 1.6e-6 ? [px, py] : null;               // cadangan: rel terdekat apa pun
 }
 
   map.on("load", () => {
@@ -268,6 +273,81 @@ function tempelRel(lng, lat) {
       })
       .catch(() => {});
 
+    /* ── pesawat langsung (OpenSky lewat proxy) ── */
+    if (!map.hasImage("pesawat-ikon")) {
+      const c = document.createElement("canvas");
+      c.width = c.height = 40;
+      const x = c.getContext("2d");
+      x.translate(20, 20);
+      x.fillStyle = "#d3e5f7";
+      x.beginPath();
+      x.moveTo(0, -14); x.lineTo(3.2, -3); x.lineTo(15, 3); x.lineTo(15, 6);
+      x.lineTo(3.2, 3.4); x.lineTo(2.4, 11); x.lineTo(7, 14); x.lineTo(7, 16);
+      x.lineTo(0, 14.4); x.lineTo(-7, 16); x.lineTo(-7, 14); x.lineTo(-2.4, 11);
+      x.lineTo(-3.2, 3.4); x.lineTo(-15, 6); x.lineTo(-15, 3); x.lineTo(-3.2, -3);
+      x.closePath(); x.fill();
+      map.addImage("pesawat-ikon", x.getImageData(0, 0, 40, 40), { pixelRatio: 2 });
+    }
+    map.addSource("pesawat", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({
+      id: "pesawat-ikon",
+      type: "symbol",
+      source: "pesawat",
+      layout: {
+        "icon-image": "pesawat-ikon",
+        "icon-rotate": ["get", "arah"],
+        "icon-rotation-alignment": "map",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.42, 13, 0.8],
+        "icon-allow-overlap": true,
+      },
+      paint: { "icon-opacity": 0.92 },
+    });
+    map.addLayer({
+      id: "pesawat-nama",
+      type: "symbol",
+      source: "pesawat",
+      minzoom: 10,
+      layout: {
+        "text-field": ["get", "callsign"], "text-font": ["Noto Sans Regular"],
+        "text-size": 10, "text-offset": [0, 1.05], "text-anchor": "top", "text-padding": 2,
+      },
+      paint: { "text-color": "#d6e7f8", "text-halo-color": "#050705", "text-halo-width": 1.4 },
+    });
+    map.on("click", "pesawat-ikon", (e) => {
+      const f = e.features?.[0];
+      if (!f) return;
+      const p = f.properties;
+      new maplibregl.Popup({ closeButton: false, offset: 14, className: "pop-psw", maxWidth: "240px" })
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(`<div class="pps"><div class="pps-kode">${p.callsign}</div>
+          <div class="pps-negara">${p.negara || "—"}</div>
+          <div class="pps-angka">${p.alt ? (p.alt + " m") : "—"} · ${p.cepat ? (p.cepat + " km/j") : "—"} · ${p.arah}°</div></div>`)
+        .addTo(map);
+    });
+
+    let pesawatHidup = true;
+    async function muatPesawat() {
+      if (!pesawatHidup) return;
+      try {
+        const d = await (await fetch(`/api/pesawat?t=${Date.now()}`)).json();
+        const feats = (d.pesawat || []).map((p) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+          properties: p,
+        }));
+        map.getSource("pesawat")?.setData({ type: "FeatureCollection", features: feats });
+      } catch {}
+    }
+    muatPesawat();
+    setInterval(muatPesawat, 30000);
+    window.__setPesawat = (v) => {
+      pesawatHidup = v;
+      for (const id of ["pesawat-ikon", "pesawat-nama"]) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
+      }
+      if (v) muatPesawat();
+    };
+
     window.__setRencana = (v) => {
       for (const id of ["rencana-garis", "rencana-perkiraan", "rencana-stasiun", "rencana-nama", "rencana-catatan"]) {
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
@@ -418,6 +498,44 @@ function tempelRel(lng, lat) {
         "circle-stroke-width": ["match", ["get", "tipe"], "Mikrotrans", 0.9, 0.8],
       },
     });
+    /* jalur rute TJ dari OSM: koridor BRT selalu tampil, rute lain saat bus diklik */
+    let ruteSiap = false;
+    fetch("/tj-rute.geojson?v=1")
+      .then((r) => r.json())
+      .then((g) => {
+        if (map.getSource("tjRute")) return;
+        map.addSource("tjRute", { type: "geojson", data: g });
+        map.addLayer({
+          id: "tj-rute-brt",
+          type: "line",
+          source: "tjRute",
+          filter: ["all", ["==", ["get", "tipe"], "brt"], ["in", ["get", "ref"], ["literal", ["1","2","3","4","5","6","7","8","9","10","11","12","13","14"]]]],
+          minzoom: 10.5,
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: { "line-color": "#f08a2c", "line-width": ["interpolate", ["linear"], ["zoom"], 10.5, 1, 14, 2.4], "line-opacity": 0.28 },
+        });
+        map.addLayer({
+          id: "tj-rute-pilih",
+          type: "line",
+          source: "tjRute",
+          filter: ["==", ["get", "ref"], "—"],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": ["match", ["get", "tipe"], "mikrotrans", "#4fd1b5", "#f2a541"],
+            "line-width": ["interpolate", ["linear"], ["zoom"], 9, 2, 14, 4],
+            "line-opacity": 0.9,
+          },
+        });
+        ruteSiap = true;
+      })
+      .catch(() => {});
+
+    const tampilJalurTJ = (ref) => {
+      if (!ruteSiap || !map.getLayer("tj-rute-pilih")) return;
+      map.setFilter("tj-rute-pilih", ["==", ["get", "ref"], ref || "—"]);
+    };
+    window.__tjJalur = tampilJalurTJ;
+
     map.on("click", "tj-titik", (e) => {
       const f = e.features?.[0];
       if (f) {
@@ -430,7 +548,11 @@ function tempelRel(lng, lat) {
             <div class="ptj-id">${p.id}</div>
           </div>`)
           .addTo(map);
+        tampilJalurTJ(p.rute);
       }
+    });
+    map.on("click", (e) => {
+      if (!map.queryRenderedFeatures(e.point, { layers: ["tj-titik"] }).length) tampilJalurTJ(null);
     });
 
     /* TransJakarta: posisi masuk tiap 1,5 dtk, tapi digambar dengan interpolasi 250 ms
@@ -495,7 +617,7 @@ function tempelRel(lng, lat) {
     const muatRel = async () => {
       if (map.getSource("rel")) return;
       try {
-        const g = await fetch("/rel.geojson?v=3").then((r) => r.json());
+        const g = await fetch("/rel.geojson?v=5").then((r) => r.json());
         if (!map.getSource("rel")) {
           map.addSource("rel", { type: "geojson", data: g });
           map.addLayer({
@@ -566,7 +688,7 @@ function tempelRel(lng, lat) {
       const t = i / (N - 1);
       const x0 = g.fx + (g.tx - g.fx) * t;
       const y0 = g.fy + (g.ty - g.fy) * t;
-      const s = tempelRel(x0, y0);
+      const s = tempelRel(x0, y0, JENIS_MODA[g.p?.moda]);
       titik.push(s || [x0, y0]);
     }
     const panjang = [];

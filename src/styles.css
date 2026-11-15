@@ -371,3 +371,14 @@ body {
   .lipat-kanan { right: 0; bottom: 12px; }
   .rail { padding-top: 54px; }
 }
+
+/* tooltip pesawat */
+.pop-psw .maplibregl-popup-content {
+  background: #0a1018; border: 1px solid #2b3f52; border-radius: 7px;
+  padding: 10px 12px; box-shadow: 0 10px 28px rgba(0,0,0,.65);
+}
+.pps { font-family: "IBM Plex Mono", monospace; min-width: 140px; }
+.pps-kode { font-size: 17px; font-weight: 700; color: #a9c8e8; letter-spacing: .04em; }
+.pps-negara { font-size: 10px; color: #7f96ab; margin-top: 2px; letter-spacing: .08em; }
+.pps-angka { font-size: 11px; color: #e6eef6; margin-top: 7px; }
+.pop-psw.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: #0a1018 !important; }

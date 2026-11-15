@@ -49,6 +49,7 @@ export default function App() {
   const daftarRef = useRef([]);
   const [jumlahStasiun, setJumlahStasiun] = useState(0);
   const [rencana, setRencana] = useState(() => localStorage.getItem("rv-rencana") !== "0");
+  const [pesawat, setPesawat] = useState(() => localStorage.getItem("rv-pesawat") !== "0");
   const sempit = typeof window !== "undefined" && window.innerWidth < 900;
   const paksaFokus = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("fokus");
   const [kiri, setKiri] = useState(() => (sempit || paksaFokus ? false : localStorage.getItem("rv-kiri") !== "0"));
@@ -61,6 +62,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem("rv-kanan", kanan ? "1" : "0"); }, [kanan]);
   useEffect(() => { localStorage.setItem("rv-bawah", bawah ? "1" : "0"); }, [bawah]);
   useEffect(() => { window.__setRencana?.(rencana); }, [rencana]);
+  useEffect(() => { window.__setPesawat?.(pesawat); }, [pesawat]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -321,6 +323,15 @@ export default function App() {
             <span className="sw" style={{ background: "repeating-linear-gradient(90deg,#c07be0 0 4px,transparent 4px 7px)" }} />
             Jalur rencana
             <span className="n">{rencana ? "on" : "off"}</span>
+          </div>
+          <div
+            className={"layer" + (pesawat ? " on" : "")}
+            onClick={() => { const v = !pesawat; setPesawat(v); localStorage.setItem("rv-pesawat", v ? "1" : "0"); }}
+            style={{ cursor: "pointer" }}
+          >
+            <span className="sw" style={{ background: "#a9c8e8" }} />
+            Pesawat (live)
+            <span className="n">{pesawat ? "on" : "off"}</span>
           </div>
           {["K", "M", "L", "J", "W", "A", "B"].map((m) => (
             <div className="layer on" key={m}>
