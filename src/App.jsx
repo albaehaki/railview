@@ -250,7 +250,7 @@ export default function App() {
     t.mulai = e.clientY;
     t.awal = geserSekarang();
     t.geser = t.awal;
-    laciRef.current?.setPointerCapture?.(e.pointerId);
+    e.currentTarget?.setPointerCapture?.(e.pointerId);
     document.body.style.userSelect = "none";
   };
 
@@ -351,6 +351,7 @@ export default function App() {
         >
           <i />
         </div>
+        <button className="laci-x" onClick={() => bukaLaci("tutup")} aria-label="tutup laci" title="Tutup laci">×</button>
 
         <div className="ltab">
           <button className={"lt" + (tab === "lapisan" ? " on" : "")} onClick={() => setTab("lapisan")}>

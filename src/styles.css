@@ -405,6 +405,9 @@ body {
   will-change: transform;
 }
 .laci.tertutup { transform: translate(-50%, calc(100% + 14px)); }
+.laci-x { position: absolute; right: 9px; top: 6px; z-index: 3; background: none; border: none;
+  color: #6f7d68; font-size: 19px; line-height: 1; cursor: pointer; padding: 3px 7px; border-radius: 7px; }
+.laci-x:hover { color: #f0f4ec; background: rgba(255,255,255,.06); }
 
 .pegang { padding: 9px 0 5px; display: flex; justify-content: center; cursor: grab; touch-action: none; }
 .pegang:active { cursor: grabbing; }
