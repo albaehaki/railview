@@ -32,6 +32,7 @@ export default async () => {
         arah: Math.round(a.track || 0),
         naik: a.baro_rate || 0,
         jenis: a.t || "",
+        darat: a.alt_baro === "ground",
       }));
     return balas({ pesawat, waktu: d.now }, 200, 20);
   } catch (e) {

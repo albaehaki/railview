@@ -26,7 +26,7 @@ const acak = () => {
 const MODA = { K: "KRL", M: "MRT", L: "LRT Jabodebek", J: "LRT Jakarta", W: "Whoosh", A: "antarkota", B: "barang" };
 const WARNA_MODA = { K: "#58a874", M: "#e0524a", L: "#4a86e0", J: "#d969b0", W: "#9b6bd6", A: "#e6ece1", B: "#d9a24b" };
 
-const SNAP = { tutup: 1, setengah: 0.42, penuh: 0 };
+const SNAP = { tutup: 1, setengah: 0.34, penuh: 0 };
 
 export default function App() {
   const boxRef = useRef(null);
@@ -286,11 +286,11 @@ export default function App() {
     document.body.style.userSelect = "";
     const h = tinggiLaci();
     const rasio = t.geser / h;
-    let tujuan = "setengah";
-    if (rasio > 0.78) tujuan = "tutup";
-    else if (rasio < 0.22) tujuan = "penuh";
-    else if (rasio > 0.55) tujuan = "setengah";
-    else tujuan = t.geser < t.awal ? "penuh" : "setengah";
+    let tujuan = "setengah", beda = 9;
+    for (const [nama, titik] of [["penuh", 0], ["setengah", SNAP.setengah], ["tutup", 1]]) {
+      const d = Math.abs(rasio - titik);
+      if (d < beda) { beda = d; tujuan = nama; }
+    }
     setGeser(null);
     setLaci(tujuan);
   };

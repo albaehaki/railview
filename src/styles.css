@@ -534,3 +534,10 @@ body {
   .ltab { overflow-x: auto; }
   .lt { padding: 11px 9px; }
 }
+
+/* tooltip kamera */
+.pop-cam .maplibregl-popup-content { background: #12100a; border: 1px solid #4a3a1c; border-radius: 8px;
+  padding: 9px 11px; box-shadow: 0 10px 26px rgba(0,0,0,.6); }
+.pcam-t { font-size: 12px; color: #f0d9a8; font-weight: 600; }
+.pcam-s { font-size: 9.5px; color: #9a8a68; margin-top: 3px; letter-spacing: .04em; }
+.pop-cam.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color: #12100a !important; }

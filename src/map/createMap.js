@@ -293,6 +293,7 @@ function tempelRel(lng, lat, jenis) {
       id: "pesawat-ikon",
       type: "symbol",
       source: "pesawat",
+      filter: ["!=", ["get", "darat"], true],
       layout: {
         "icon-image": "pesawat-ikon",
         "icon-rotate": ["get", "arah"],
@@ -313,6 +314,34 @@ function tempelRel(lng, lat, jenis) {
       },
       paint: { "text-color": "#d6e7f8", "text-halo-color": "#050705", "text-halo-width": 1.4 },
     });
+    map.addLayer({
+      id: "pesawat-darat",
+      type: "symbol",
+      source: "pesawat",
+      filter: ["==", ["get", "darat"], true],
+      minzoom: 9.5,
+      layout: {
+        "icon-image": "pesawat-ikon",
+        "icon-rotate": ["get", "arah"],
+        "icon-rotation-alignment": "map",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.26, 14, 0.55],
+        "icon-allow-overlap": true,
+      },
+      paint: { "icon-opacity": 0.75 },
+    });
+    map.addLayer({
+      id: "pesawat-darat-nama",
+      type: "symbol",
+      source: "pesawat",
+      filter: ["==", ["get", "darat"], true],
+      minzoom: 12,
+      layout: {
+        "text-field": ["get", "callsign"], "text-font": ["Noto Sans Regular"],
+        "text-size": 8.5, "text-offset": [0, 0.9], "text-anchor": "top",
+      },
+      paint: { "text-color": "#9fb6cc", "text-halo-color": "#050705", "text-halo-width": 1.1 },
+    });
+
     map.on("click", "pesawat-ikon", (e) => {
       const f = e.features?.[0];
       if (!f) return;
@@ -342,7 +371,7 @@ function tempelRel(lng, lat, jenis) {
     setInterval(muatPesawat, 30000);
     window.__setPesawat = (v) => {
       pesawatHidup = v;
-      for (const id of ["pesawat-ikon", "pesawat-nama"]) {
+      for (const id of ["pesawat-ikon", "pesawat-nama", "pesawat-darat", "pesawat-darat-nama"]) {
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
       }
       if (v) muatPesawat();
@@ -394,6 +423,56 @@ function tempelRel(lng, lat, jenis) {
       .catch(() => {});
 
     /* kereta */
+    /* ── ikon kendaraan (kereta / bus / mobil) ── */
+    const WARNA_MODA = { K: "#58a874", M: "#e0524a", L: "#4a86e0", J: "#d969b0", W: "#9b6bd6", A: "#e6ece1", B: "#d9a24b" };
+    const ikonKendaraan = (nama, warna, jenis) => {
+      if (map.hasImage(nama)) return;
+      const S = 48;
+      const c = document.createElement("canvas");
+      c.width = c.height = S;
+      const x = c.getContext("2d");
+      x.lineJoin = "round"; x.lineWidth = 2.6; x.strokeStyle = "#040604";
+      x.fillStyle = warna;
+      const terang = "#f0f5ec";
+      if (jenis === "kereta") {
+        x.fillStyle = terang;
+        x.beginPath(); x.roundRect(11, 8, 26, 28, 6); x.fill(); x.stroke();
+        x.fillStyle = warna;
+        x.beginPath(); x.roundRect(11, 27, 26, 9, 3); x.fill();
+        x.fillStyle = "#101a12";
+        x.beginPath(); x.roundRect(15, 12, 18, 9, 2.5); x.fill();
+        x.fillStyle = "#040604";
+        x.beginPath(); x.roundRect(14, 37, 7, 3, 1.5); x.fill();
+        x.beginPath(); x.roundRect(27, 37, 7, 3, 1.5); x.fill();
+      } else if (jenis === "bus") {
+        x.fillStyle = terang;
+        x.beginPath(); x.roundRect(5, 13, 38, 20, 5); x.fill(); x.stroke();
+        x.fillStyle = warna;
+        x.beginPath(); x.roundRect(5, 27, 38, 6, 2); x.fill();
+        x.fillStyle = "#101a12";
+        x.beginPath(); x.roundRect(9, 16, 27, 8, 2); x.fill();
+        x.fillStyle = "#040604";
+        x.beginPath(); x.arc(15, 34, 3.4, 0, 7); x.fill();
+        x.beginPath(); x.arc(34, 34, 3.4, 0, 7); x.fill();
+      } else {
+        x.fillStyle = terang;
+        x.beginPath(); x.roundRect(9, 21, 30, 10, 3); x.fill(); x.stroke();
+        x.fillStyle = warna;
+        x.beginPath(); x.roundRect(15, 12, 18, 10, 3); x.fill(); x.stroke();
+        x.fillStyle = "#101a12";
+        x.beginPath(); x.roundRect(17, 14, 14, 6, 2); x.fill();
+        x.fillStyle = "#040604";
+        x.beginPath(); x.arc(16, 32, 3.1, 0, 7); x.fill();
+        x.beginPath(); x.arc(32, 32, 3.1, 0, 7); x.fill();
+      }
+      map.addImage(nama, x.getImageData(0, 0, S, S), { pixelRatio: 2 });
+    };
+    for (const [m, c] of Object.entries(WARNA_MODA)) ikonKendaraan("kereta-" + m, c, "kereta");
+    ikonKendaraan("bus-brt", "#f08a2c", "bus");
+    ikonKendaraan("mobil-mikro", "#4fd1b5", "mobil");
+    ikonKendaraan("mobil-angkot", "#a98be0", "mobil");
+    ikonKendaraan("mobil-rusun", "#e07fb8", "mobil");
+
     map.addSource("kereta", {
       type: "geojson",
       data: { type: "FeatureCollection", features: [] },
@@ -412,16 +491,17 @@ function tempelRel(lng, lat, jenis) {
     });
     map.addLayer({
       id: "kereta-titik",
-      type: "circle",
+      type: "symbol",
       source: "kereta",
-      paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 13, 7],
-        "circle-color": ["match", ["get", "moda"],
-          "K", "#58a874", "M", "#e0524a", "L", "#4a86e0", "J", "#d969b0",
-          "W", "#9b6bd6", "A", "#e6ece1", "B", "#d9a24b", "#8b978a"],
-        "circle-stroke-color": "#f2f6ee",
-        "circle-stroke-width": 1.1,
+      layout: {
+        "icon-image": ["match", ["get", "moda"],
+          "K", "kereta-K", "M", "kereta-M", "L", "kereta-L", "J", "kereta-J",
+          "W", "kereta-W", "A", "kereta-A", "B", "kereta-B", "kereta-K"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.52, 13, 1.02],
+        "icon-allow-overlap": true,
+        "icon-rotation-alignment": "map",
       },
+      paint: { "icon-opacity": 0.98 },
     });
 
     /* kamera CCTV publik di peta */
@@ -458,7 +538,13 @@ function tempelRel(lng, lat, jenis) {
     });
     map.on("click", "kamera-ikon", (e) => {
       const f = e.features?.[0];
-      if (f && onKamera) onKamera(f.properties.nama);
+      if (!f) return;
+      new maplibregl.Popup({ closeButton: false, offset: 12, className: "pop-cam", maxWidth: "220px" })
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(`<div class="pcam"><div class="pcam-t">${f.properties.judul || "kamera"}</div>
+          <div class="pcam-s">klik untuk menonton · laci terbuka</div></div>`)
+        .addTo(map);
+      if (onKamera) onKamera(f.properties.nama);
     });
     map.on("mouseenter", "kamera-ikon", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kamera-ikon", () => (map.getCanvas().style.cursor = ""));
@@ -481,20 +567,19 @@ function tempelRel(lng, lat, jenis) {
     map.addSource("tj", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({
       id: "tj-titik",
-      type: "circle",
+      type: "symbol",
       source: "tj",
-      paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.6, 14, 5],
-        "circle-color": ["match", ["get", "tipe"],
-          "Mikrotrans", "#4fd1b5",
-          "BRT", "#f08a2c",
-          "Angkutan Umum Integrasi", "#a98be0",
-          "Rusun", "#e07fb8",
-          "#f08a2c"],
-        "circle-opacity": 0.95,
-        "circle-stroke-color": ["match", ["get", "tipe"], "Mikrotrans", "#06322b", "#1a0d04"],
-        "circle-stroke-width": ["match", ["get", "tipe"], "Mikrotrans", 0.9, 0.8],
+      layout: {
+        "icon-image": ["match", ["get", "tipe"],
+          "Mikrotrans", "mobil-mikro",
+          "Angkutan Umum Integrasi", "mobil-angkot",
+          "Rusun", "mobil-rusun",
+          "bus-brt"],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 14, 0.95],
+        "icon-allow-overlap": true,
+        "icon-rotation-alignment": "map",
       },
+      paint: { "icon-opacity": 0.97 },
     });
     /* jalur rute TJ dari OSM: koridor BRT selalu tampil, rute lain saat bus diklik */
     let ruteSiap = false;
