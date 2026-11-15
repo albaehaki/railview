@@ -519,25 +519,48 @@ function tempelRel(lng, lat, jenis) {
     }
     map.addSource("kamera", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({
+      id: "kamera-halo",
+      type: "circle",
+      source: "kamera",
+      minzoom: 9.5,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9.5, 6, 14, 10],
+        "circle-color": "#d9a24b",
+        "circle-opacity": 0.22,
+        "circle-stroke-color": "#d9a24b",
+        "circle-stroke-width": 1,
+        "circle-stroke-opacity": 0.55,
+      },
+    });
+    map.addLayer({
       id: "kamera-ikon",
       type: "symbol",
       source: "kamera",
       minzoom: 9.5,
       layout: {
         "icon-image": "kamera-ikon",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.36, 14, 0.7],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.5, 14, 0.95],
         "icon-allow-overlap": true,
       },
     });
     map.on("click", "kamera-ikon", (e) => {
       const f = e.features?.[0];
       if (!f) return;
-      new maplibregl.Popup({ closeButton: false, offset: 12, className: "pop-cam", maxWidth: "220px" })
+      const p = f.properties;
+      const isi = p.embed
+        ? `<iframe class="cam-pop" src="${p.embed}" allow="autoplay; fullscreen" loading="lazy" referrerpolicy="no-referrer"></iframe>`
+        : p.foto
+        ? `<img class="cam-pop" src="${p.foto}?t=${Date.now()}" alt="${p.judul}" />`
+        : `<div class="cam-kosong">tidak ada tayangan</div>`;
+      new maplibregl.Popup({ closeButton: true, offset: 14, className: "pop-cam", maxWidth: "320px" })
         .setLngLat(f.geometry.coordinates)
-        .setHTML(`<div class="pcam"><div class="pcam-t">${f.properties.judul || "kamera"}</div>
-          <div class="pcam-s">klik untuk menonton · laci terbuka</div></div>`)
+        .setHTML(`<div class="pcam">
+            <div class="pcam-t">${p.judul || "kamera"}</div>
+            <div class="pcam-kota">${p.kota || ""}${p.perkiraan ? " · titik perkiraan" : ""}</div>
+            <div class="pcam-tayang">${isi}</div>
+            <div class="pcam-s">siaran publik · klik kamera lain untuk ganti</div>
+          </div>`)
         .addTo(map);
-      if (onKamera) onKamera(f.properties.nama);
     });
     map.on("mouseenter", "kamera-ikon", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kamera-ikon", () => (map.getCanvas().style.cursor = ""));
@@ -550,7 +573,8 @@ function tempelRel(lng, lat, jenis) {
           .map((k) => ({
             type: "Feature",
             geometry: { type: "Point", coordinates: [k.lng, k.lat] },
-            properties: { nama: k.nama, judul: k.judul },
+            properties: { nama: k.nama, judul: k.judul, kota: k.kota, jenis: k.jenis,
+              embed: k.embed || "", foto: k.foto || "", perkiraan: !!k.perkiraan },
           }));
         map.getSource("kamera")?.setData({ type: "FeatureCollection", features: feats });
       })
@@ -724,9 +748,50 @@ function tempelRel(lng, lat, jenis) {
     setTimeout(muatRel, 1200);
     map.once("zoomend", () => { if (map.getZoom() >= 11) muatRel(); });
 
-    map.on("click", "kereta-titik", (e) => {
+    map.on("click", "kereta-titik", async (e) => {
       const f = e.features?.[0];
-      if (f && onTrain) onTrain({ ...f.properties, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] });
+      if (!f) return;
+      const p = f.properties;
+      const MODA = { K: "KRL", M: "MRT", L: "LRT Jabodebek", J: "LRT Jakarta", W: "Whoosh", A: "Antarkota", B: "Barang" };
+      const jam = (ms) => {
+        if (!ms) return "—";
+        const d = new Date(Number(ms));
+        return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+      };
+      const pop = new maplibregl.Popup({ closeButton: true, offset: 12, className: "pop-kereta", maxWidth: "300px" })
+        .setLngLat(f.geometry.coordinates)
+        .setHTML(`<div class="pkr">
+            <div class="pkr-atas"><span class="pkr-kode">${p.kode || p.id}</span><span class="pkr-moda">${MODA[p.moda] || p.moda}</span></div>
+            <div class="pkr-muat">memuat rincian perjalanan…</div>
+          </div>`)
+        .addTo(map);
+
+      if (onTrain) onTrain({ ...p, lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] });
+
+      try {
+        const j = await fetch(`/api/rail?what=jalur&id=${encodeURIComponent(p.id)}`).then((r) => r.json());
+        if (!j || !j.jalur) return;
+        const jalur = j.jalur;
+        const iNext = Math.max(0, jalur.findIndex((s) => s.st === p.next));
+        const lewat = jalur.slice(iNext, iNext + 4);
+        const baris = lewat.map((s, i) => {
+          const now = i === 0;
+          return `<div class="pkr-baris${now ? " now" : ""}">
+              <span class="pkr-jam">${jam(i === 0 ? s.arr : s.arr)}</span>
+              <span class="pkr-st">${s.nama || s.st}${now ? " · berikutnya" : ""}</span>
+            </div>`;
+        }).join("");
+        pop.setHTML(`<div class="pkr">
+            <div class="pkr-atas"><span class="pkr-kode">${p.kode || p.id}</span><span class="pkr-moda">${MODA[p.moda] || p.moda}</span></div>
+            <div class="pkr-relasi">${j.relasi || "—"}</div>
+            <div class="pkr-sub">${jalur.length} stasiun · ${j.tipe || ""}</div>
+            <div class="pkr-jadwal">${baris}</div>
+            <div class="pkr-kaki">posisi dari jadwal GAPEKA, bukan GPS</div>
+          </div>`);
+      } catch (err) {
+        pop.setHTML(`<div class="pkr"><div class="pkr-atas"><span class="pkr-kode">${p.kode || p.id}</span><span class="pkr-moda">${MODA[p.moda] || p.moda}</span></div>
+          <div class="pkr-muat">rincian gagal dimuat (${String(err && err.message || err).slice(0, 40)})</div></div>`);
+      }
     });
     map.on("mouseenter", "kereta-titik", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kereta-titik", () => (map.getCanvas().style.cursor = ""));

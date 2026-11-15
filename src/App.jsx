@@ -173,17 +173,10 @@ export default function App() {
       const map = createMap(boxRef.current, {
         onBus: (n) => setBus(n),
         onStasiun: (n) => setJumlahStasiun(n),
-        onKamera: (nama) => {
-          const k = daftarRef.current.find((x) => x.nama === nama);
-          if (!k) return;
-          setKamera(k);
-          setTab("kamera");
-          setLaci("penuh");
-        },
+        onKamera: () => {},
+        /* klik kereta: cukup sorot jalurnya, rincian tampil di popup peta */
         onTrain: async (props) => {
           setPilih(props);
-          setTab("kereta");
-          setLaci((v) => (v === "tutup" ? "setengah" : v));
           const j = await fetch(`/api/rail?what=jalur&id=${props.id}`).then((r) => r.json());
           if (!hidup) return;
           if (j && j.jalur) {
@@ -373,12 +366,6 @@ export default function App() {
           <button className={"lt" + (tab === "lapisan" ? " on" : "")} onClick={() => setTab("lapisan")}>
             Lapisan <u>{["K", "M", "L", "J", "W", "A", "B"].filter((m) => jumlah(m)).length + 2}</u>
           </button>
-          <button className={"lt" + (tab === "kereta" ? " on" : "")} onClick={() => setTab("kereta")}>
-            Kereta <u>{trains.length}</u>
-          </button>
-          <button className={"lt" + (tab === "kamera" ? " on" : "")} onClick={() => setTab("kamera")}>
-            Kamera <u>{daftarKamera.length}</u>
-          </button>
           <button className={"lt" + (tab === "warna" ? " on" : "")} onClick={() => setTab("warna")}>
             Warna
           </button>
@@ -425,96 +412,6 @@ export default function App() {
                   Posisi kereta dihitung dari jadwal GAPEKA dan titik jalur, bukan GPS tiap kereta.
                   Bus TransJakarta langsung dari broker publik. Pesawat dari adsb.lol.
                 </p>
-              </div>
-            </div>
-          )}
-
-          {tab === "kereta" && (
-            <div className="lgrid">
-              <div className="kartu">
-                <h5>Kereta berjalan · {trains.length}</h5>
-                <div className="daftar">
-                  {trains.slice(0, 40).map((t) => (
-                    <div className="r" key={t[0]}>
-                      <b>{t[1]}</b>
-                      <span className="mda">{MODA[t[2]] || "KA"}</span>
-                      <em>menuju {namaSt(t[6])}</em>
-                    </div>
-                  ))}
-                  {trains.length === 0 && <div className="r"><em>menunggu data…</em></div>}
-                </div>
-              </div>
-
-              <div className="kartu">
-                <h5>{pilih ? "kereta dipilih" : "pilih kereta di peta"}</h5>
-                {pilih ? (
-                  <>
-                    <div className="besar">{pilih.kode}<span>{MODA[pilih.moda] || "antarkota"}</span></div>
-                    <div className="rows">
-                      <div className="row"><span>Stasiun berikut</span><b>{namaSt(pilih.next)}</b></div>
-                      <div className="row"><span>Arah</span><b>{pilih.arah}°</b></div>
-                      <div className="row"><span>Kode</span><b>{pilih.id}</b></div>
-                    </div>
-                    {sisaJalur.length > 0 && (
-                      <div className="sisa">
-                        {sisaJalur.map((p) => (
-                          <div className="sisa-r" key={p.st + p.lat}><s /><span>{p.nama}</span><em>{p.st}</em></div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="acts">
-                      <button className="btn primary" onClick={() => mapRef.current?.flyKe(pilih.lng, pilih.lat, 14)}>Ikuti kereta</button>
-                      <button className="btn" onClick={() => mapRef.current?.map?.flyTo({ center: [106.86, -6.22], zoom: 9.2, pitch: 55 })}>Seluruh Jabodetabek</button>
-                    </div>
-                  </>
-                ) : (
-                  <p className="note">Klik titik kereta di peta, jalurnya akan tergambar dan detailnya muncul di sini.</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {tab === "kamera" && (
-            <div className="lgrid">
-              <div className="kartu">
-                <h5>{kamera?.judul || "memuat kamera…"}</h5>
-                <div className="frame">
-                  {kamera?.jenis === "iframe" || kamera?.jenis === "embed" ? (
-                    <iframe key={kamera.nama} src={kamera.embed} title={kamera.judul} allow="autoplay; fullscreen" referrerPolicy="no-referrer" />
-                  ) : kamera?.hanyaGambar ? (
-                    <img className="snap" alt={kamera.judul} src={`${kamera.foto}?t=${Math.floor((Date.now() + detak * 10000) / 10000)}`} />
-                  ) : (
-                    <video ref={videoRef} poster={kamera?.foto} muted playsInline autoPlay />
-                  )}
-                  <div className="grain" />
-                  <div className={kamera?.hanyaGambar ? "rec gambar" : "rec"}>
-                    <u />{kamera?.hanyaGambar ? "GAMBAR 10 DETIK" : "LANGSUNG"}
-                  </div>
-                </div>
-                <select
-                  className="camselect"
-                  value={kamera?.nama || ""}
-                  onChange={(e) => setKamera(daftarKamera.find((k) => k.nama === e.target.value) || null)}
-                >
-                  {daftarKamera.map((k) => (
-                    <option key={k.nama} value={k.nama}>{k.judul}{k.hidup === false ? " · offline" : ""}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="kartu">
-                <h5>Info kamera</h5>
-                <div className="rows">
-                  <div className="row"><span>Pengelola</span><b>Pemkot Bekasi / Bogor</b></div>
-                  <div className="row"><span>Kamera</span><b>{kamera?.nama || "—"}</b></div>
-                  <div className="row"><span>Format</span><b>{kamera?.jenis === "iframe" || kamera?.jenis === "embed" ? "embed" : kamera?.hanyaGambar ? "gambar" : "HLS"}</b></div>
-                  <div className="row"><span>Status</span><b>{kamera?.hidup === false ? "offline" : kamera?.hanyaGambar ? "video dibatasi" : "siaran publik"}</b></div>
-                  {kamera?.catatan ? <div className="row"><span>Catatan</span><b style={{ maxWidth: 190, textAlign: "right" }}>{kamera.catatan}</b></div> : null}
-                </div>
-                <div className="acts">
-                  <button className="btn primary" onClick={() => kamera && window.open(kamera.foto, "_blank")}>Buka sumber</button>
-                  <button className="btn" onClick={() => bukaLaci("tutup")}>Tutup laci</button>
-                </div>
               </div>
             </div>
           )}

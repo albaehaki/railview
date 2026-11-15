@@ -48,7 +48,10 @@ export default async (req) => {
   const what = u.searchParams.get("what") || "list";
 
   if (what === "peta") {
-    const titik = KAMERA.filter((k) => k.lat && k.lng).map((k) => ({ nama: k.nama, judul: k.judul, lat: k.lat, lng: k.lng, jenis: k.jenis }));
+    const titik = [...KAMERA, ...KAMERA_JKT]
+      .filter((k) => k.lat && k.lng)
+      .map((k) => ({ nama: k.nama, judul: k.judul, lat: k.lat, lng: k.lng, jenis: k.jenis,
+        embed: k.embed || "", foto: k.foto || "", kota: k.kota || "Bogor", perkiraan: !!k.perkiraan }));
     return new Response(JSON.stringify({ jumlah: titik.length, kamera: titik }), {
       headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "public, max-age=600" },
     });
