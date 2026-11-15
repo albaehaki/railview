@@ -1,4 +1,5 @@
 import KAMERA from "./data/kamera.mjs";
+import STATUS from "./data/status.mjs";
 
 const BASE = "https://bekasikota.go.id";
 const UA = { "User-Agent": "Mozilla/5.0 (RailView)", Referer: BASE + "/" };
@@ -16,7 +17,12 @@ async function cekHidup() {
   if (cacheList.data && Date.now() - cacheList.at < 5 * 60000) return cacheList.data;
   const hasil = await Promise.all(
     KAMERA.map(async (k) => {
-      if (k.jenis !== "hls") return { ...k, hidup: true };
+      const tanda = STATUS[k.nama];
+      if (typeof tanda === "boolean" && tanda === false) {
+        return { ...k, hidup: false, catatan: "siaran sedang mati" };
+      }
+      if (k.jenis === "hls") return { ...k, hidup: true, hanyaGambar: true, catatan: "video asal memblokir server · tampil gambar terbaru" };
+      if (typeof tanda === "boolean" && tanda) return { ...k, hidup: true, catatan: "" };
       try {
         const r = await fetch(`${BASE}/api/cctv/stream/${encodeURIComponent(k.nama)}.m3u8`, { headers: UA, signal: AbortSignal.timeout(6000) });
         const t = await r.text();
@@ -25,11 +31,12 @@ async function cekHidup() {
         const umur = m ? Date.now() - Number(m[1]) * 1000 : 1e9;
         return { ...k, hidup: umur < 30 * 60000 };
       } catch {
-        return { ...k, hidup: false };
+        return { ...k, hidup: false, catatan: "video dibatasi origin · tampil gambar terbaru" };
       }
     })
   );
-  hasil.sort((a, b) => Number(b.hidup) - Number(a.hidup));
+  const nilai = (k) => Number(!!k.hidup && !k.hanyaGambar) * 2 + Number(!!k.hidup);
+  hasil.sort((a, b) => nilai(b) - nilai(a));
   cacheList = { at: Date.now(), data: hasil };
   return hasil;
 }
@@ -83,8 +90,12 @@ export default async (req) => {
   if (what === "seg") {
     const f = u.searchParams.get("f") || "";
     if (!/^[\w.\-]+\.ts$/.test(f)) return new Response("nama segmen tidak sah", { status: 400, headers: HEAD });
-    const r = await fetch(`${BASE}/api/cctv/seg/${encodeURIComponent(f)}`, { headers: UA });
-    if (!r.ok) return new Response("segmen tidak ada", { status: 502, headers: HEAD });
+    const r = await fetch(`${BASE}/api/cctv/seg/${encodeURIComponent(f)}`, { headers: UA, redirect: "follow" });
+    if (!r.ok) {
+      const cuplik = (await r.text().catch(() => "")).slice(0, 120);
+      return new Response(JSON.stringify({ galat: "segmen", status: r.status, url: r.url, cuplik }),
+        { status: 502, headers: { ...HEAD, "content-type": "application/json" } });
+    }
     return new Response(r.body, {
       headers: { "content-type": "video/mp2t", "access-control-allow-origin": "*", "cache-control": "public, max-age=20" },
     });

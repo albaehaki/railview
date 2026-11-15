@@ -35,7 +35,7 @@ export default function App() {
   const tarikRef = useRef({ aktif: false, mulai: 0, awal: 0, geser: 0 });
 
   const [jam, setJam] = useState("--:--:--");
-  const [tab, setTab] = useState("lapisan");
+  const [tab, setTab] = useState(() => new URLSearchParams(location.search).get("tab") || "lapisan");
   const [mode, setMode] = useState("helikopter");
   const [warna, setWarna] = useState({ low: "#252d20", mid: "#2f3728", high: "#3a4432" });
   const [preset, setPreset] = useState("hijau");
@@ -62,6 +62,7 @@ export default function App() {
     return localStorage.getItem("rv-laci") || (window.innerWidth < 900 ? "tutup" : "setengah");
   });
   const [geser, setGeser] = useState(null);
+  const [detak, setDetak] = useState(0);
 
   useEffect(() => { localStorage.setItem("rv-laci", laci); }, [laci]);
   useEffect(() => { localStorage.setItem("rv-ringkas", ringkas ? "1" : "0"); }, [ringkas]);
@@ -91,7 +92,15 @@ export default function App() {
         if (!semua.length) throw new Error("kosong");
         daftarRef.current = semua;
         setDaftarKamera(semua);
-        setKamera(semua.find((k) => k.jenis === "iframe" && k.hidup !== false) || semua.find((k) => k.hidup !== false) || semua[0]);
+        const urut = [...semua].sort((a, b) => Number(!!b.hidup && !b.hanyaGambar) - Number(!!a.hidup && !a.hanyaGambar));
+        setDaftarKamera(urut);
+        const mau = new URLSearchParams(location.search).get("cam");
+        setKamera(
+          (mau && urut.find((k) => k.nama === mau)) ||
+          urut.find((k) => k.hidup !== false && !k.hanyaGambar && k.jenis === "iframe") ||
+          urut.find((k) => k.hidup !== false && !k.hanyaGambar) ||
+          urut[0]
+        );
       } catch {
         if (hidup && coba++ < 6) setTimeout(ambil, 3000);
       }
@@ -103,7 +112,7 @@ export default function App() {
   /* siaran HLS */
   useEffect(() => {
     const v = videoRef.current;
-    if (!v || !kamera || tab !== "kamera" || laci === "tutup" || kamera.jenis === "iframe") return;
+    if (!v || !kamera || tab !== "kamera" || laci === "tutup" || kamera.hanyaGambar || kamera.jenis === "iframe" || kamera.jenis === "embed") return;
     let hls = null;
     let batal = false;
     const url = `/api/cctv?what=m3u8&n=${encodeURIComponent(kamera.nama)}`;
@@ -131,6 +140,13 @@ export default function App() {
       v.removeAttribute("src");
       v.load();
     };
+  }, [kamera, tab, laci]);
+
+  /* gambar terbaru untuk kamera yang videonya diblokir */
+  useEffect(() => {
+    if (!kamera?.hanyaGambar || tab !== "kamera" || laci === "tutup") return;
+    const id = setInterval(() => setDetak((n) => n + 1), 10000);
+    return () => clearInterval(id);
   }, [kamera, tab, laci]);
 
   /* jam */
@@ -463,13 +479,17 @@ export default function App() {
               <div className="kartu">
                 <h5>{kamera?.judul || "memuat kamera…"}</h5>
                 <div className="frame">
-                  {kamera?.jenis === "iframe" ? (
+                  {kamera?.jenis === "iframe" || kamera?.jenis === "embed" ? (
                     <iframe key={kamera.nama} src={kamera.embed} title={kamera.judul} allow="autoplay; fullscreen" referrerPolicy="no-referrer" />
+                  ) : kamera?.hanyaGambar ? (
+                    <img className="snap" alt={kamera.judul} src={`${kamera.foto}?t=${Math.floor((Date.now() + detak * 10000) / 10000)}`} />
                   ) : (
                     <video ref={videoRef} poster={kamera?.foto} muted playsInline autoPlay />
                   )}
                   <div className="grain" />
-                  <div className="rec"><u />LANGSUNG</div>
+                  <div className={kamera?.hanyaGambar ? "rec gambar" : "rec"}>
+                    <u />{kamera?.hanyaGambar ? "GAMBAR 10 DETIK" : "LANGSUNG"}
+                  </div>
                 </div>
                 <select
                   className="camselect"
@@ -487,8 +507,9 @@ export default function App() {
                 <div className="rows">
                   <div className="row"><span>Pengelola</span><b>Pemkot Bekasi / Bogor</b></div>
                   <div className="row"><span>Kamera</span><b>{kamera?.nama || "—"}</b></div>
-                  <div className="row"><span>Format</span><b>{kamera?.jenis === "iframe" ? "embed" : "HLS"}</b></div>
-                  <div className="row"><span>Status</span><b>{kamera?.hidup === false ? "offline" : "siaran publik"}</b></div>
+                  <div className="row"><span>Format</span><b>{kamera?.jenis === "iframe" || kamera?.jenis === "embed" ? "embed" : kamera?.hanyaGambar ? "gambar" : "HLS"}</b></div>
+                  <div className="row"><span>Status</span><b>{kamera?.hidup === false ? "offline" : kamera?.hanyaGambar ? "video dibatasi" : "siaran publik"}</b></div>
+                  {kamera?.catatan ? <div className="row"><span>Catatan</span><b style={{ maxWidth: 190, textAlign: "right" }}>{kamera.catatan}</b></div> : null}
                 </div>
                 <div className="acts">
                   <button className="btn primary" onClick={() => kamera && window.open(kamera.foto, "_blank")}>Buka sumber</button>

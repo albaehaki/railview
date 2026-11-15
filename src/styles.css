@@ -391,8 +391,8 @@ body {
 
 .laci {
   position: absolute; left: 50%; bottom: 0; z-index: 8;
-  width: min(780px, calc(100% - 26px));
-  height: min(74vh, 560px);
+  width: min(1120px, calc(100% - 28px));
+  height: min(78vh, 640px);
   transform: translate(-50%, 42%);
   transition: transform .34s cubic-bezier(.32,.72,0,1);
   background: rgba(9,13,9,.96);
@@ -431,7 +431,7 @@ body {
 .lisi::-webkit-scrollbar { width: 7px; }
 .lisi::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 9px; }
 
-.lgrid { display: grid; grid-template-columns: 1.08fr .92fr; gap: 12px; align-items: start; }
+.lgrid { display: grid; grid-template-columns: 1.18fr .82fr; gap: 13px; align-items: start; }
 .kartu { background: rgba(255,255,255,.032); border: 1px solid rgba(255,255,255,.055); border-radius: 13px; padding: 12px 13px; }
 .kartu h5 { font: 600 9px/1 "IBM Plex Mono", monospace; letter-spacing: .18em; text-transform: uppercase; color: #79886f; margin-bottom: 10px; }
 
@@ -457,7 +457,7 @@ body {
 
 .note { font-size: 10.5px; line-height: 1.65; color: #7f8e77; }
 
-.daftar { max-height: 250px; overflow-y: auto; }
+.daftar { max-height: 330px; overflow-y: auto; }
 .daftar .r { display: flex; align-items: baseline; gap: 8px; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,.06); font-size: 11.5px; }
 .daftar .r:last-child { border: none; }
 .daftar b { font: 600 11.5px/1 "IBM Plex Mono", monospace; color: #e6ece1; }
@@ -476,7 +476,10 @@ body {
 .acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .acts .btn { font-size: 10.5px; padding: 8px 12px; }
 
-.frame { position: relative; border-radius: 11px; overflow: hidden; background: #0a0f0a; aspect-ratio: 16/10; }
+.frame { position: relative; border-radius: 11px; overflow: hidden; background: #0a0f0a; aspect-ratio: 16/9; }
+.frame .snap { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(1.05); }
+.frame .rec.gambar { background: rgba(30,42,30,.72); color: #cfe0c8; }
+.frame .rec.gambar u { background: #8fd19a; }
 .frame video, .frame iframe { width: 100%; height: 100%; object-fit: cover; border: none; display: block; }
 .frame .grain { position: absolute; inset: 0; pointer-events: none;
   background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px); background-size: 3px 3px; opacity: .35; }
