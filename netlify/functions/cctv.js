@@ -1,5 +1,6 @@
 import KAMERA from "./data/kamera.mjs";
 import STATUS from "./data/status.mjs";
+import KAMERA_JKT from "./data/kamera-jkt.mjs";
 
 const BASE = "https://bekasikota.go.id";
 const UA = { "User-Agent": "Mozilla/5.0 (RailView)", Referer: BASE + "/" };
@@ -15,8 +16,9 @@ let cacheList = { at: 0, data: null };
 /** kamera dianggap hidup kalau segmen di playlistnya masih baru (< 30 menit) */
 async function cekHidup() {
   if (cacheList.data && Date.now() - cacheList.at < 5 * 60000) return cacheList.data;
+  const SEMUA = [...KAMERA, ...KAMERA_JKT];
   const hasil = await Promise.all(
-    KAMERA.map(async (k) => {
+    SEMUA.map(async (k) => {
       const tanda = STATUS[k.nama];
       if (typeof tanda === "boolean" && tanda === false) {
         return { ...k, hidup: false, catatan: "siaran sedang mati" };

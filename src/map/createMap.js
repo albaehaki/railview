@@ -433,37 +433,31 @@ function tempelRel(lng, lat, jenis) {
       const x = c.getContext("2d");
       x.lineJoin = "round"; x.lineWidth = 2.6; x.strokeStyle = "#040604";
       x.fillStyle = warna;
-      const terang = "#f0f5ec";
+      const terang = "#f2f7ee";
       if (jenis === "kereta") {
         x.fillStyle = terang;
-        x.beginPath(); x.roundRect(11, 8, 26, 28, 6); x.fill(); x.stroke();
+        x.beginPath(); x.roundRect(17, 4, 14, 40, 6); x.fill(); x.stroke();
         x.fillStyle = warna;
-        x.beginPath(); x.roundRect(11, 27, 26, 9, 3); x.fill();
-        x.fillStyle = "#101a12";
-        x.beginPath(); x.roundRect(15, 12, 18, 9, 2.5); x.fill();
-        x.fillStyle = "#040604";
-        x.beginPath(); x.roundRect(14, 37, 7, 3, 1.5); x.fill();
-        x.beginPath(); x.roundRect(27, 37, 7, 3, 1.5); x.fill();
+        x.beginPath(); x.roundRect(20, 9, 8, 30, 3); x.fill();
+        x.fillStyle = "#0d160f";
+        x.beginPath(); x.roundRect(20, 12, 8, 5, 2); x.fill();
+        x.beginPath(); x.roundRect(20, 33, 8, 5, 2); x.fill();
       } else if (jenis === "bus") {
         x.fillStyle = terang;
-        x.beginPath(); x.roundRect(5, 13, 38, 20, 5); x.fill(); x.stroke();
+        x.beginPath(); x.roundRect(15, 7, 18, 34, 5); x.fill(); x.stroke();
         x.fillStyle = warna;
-        x.beginPath(); x.roundRect(5, 27, 38, 6, 2); x.fill();
-        x.fillStyle = "#101a12";
-        x.beginPath(); x.roundRect(9, 16, 27, 8, 2); x.fill();
-        x.fillStyle = "#040604";
-        x.beginPath(); x.arc(15, 34, 3.4, 0, 7); x.fill();
-        x.beginPath(); x.arc(34, 34, 3.4, 0, 7); x.fill();
+        x.beginPath(); x.roundRect(18, 11, 12, 26, 3); x.fill();
+        x.fillStyle = "#0d160f";
+        x.beginPath(); x.roundRect(19, 13, 10, 5, 2); x.fill();
+        x.beginPath(); x.roundRect(19, 31, 10, 5, 2); x.fill();
       } else {
         x.fillStyle = terang;
-        x.beginPath(); x.roundRect(9, 21, 30, 10, 3); x.fill(); x.stroke();
+        x.beginPath(); x.roundRect(17, 12, 14, 26, 5); x.fill(); x.stroke();
         x.fillStyle = warna;
-        x.beginPath(); x.roundRect(15, 12, 18, 10, 3); x.fill(); x.stroke();
-        x.fillStyle = "#101a12";
-        x.beginPath(); x.roundRect(17, 14, 14, 6, 2); x.fill();
-        x.fillStyle = "#040604";
-        x.beginPath(); x.arc(16, 32, 3.1, 0, 7); x.fill();
-        x.beginPath(); x.arc(32, 32, 3.1, 0, 7); x.fill();
+        x.beginPath(); x.roundRect(19.5, 16, 9, 16, 3); x.fill();
+        x.fillStyle = "#0d160f";
+        x.beginPath(); x.roundRect(20.5, 18, 7, 4, 1.5); x.fill();
+        x.beginPath(); x.roundRect(20.5, 27, 7, 4, 1.5); x.fill();
       }
       map.addImage(nama, x.getImageData(0, 0, S, S), { pixelRatio: 2 });
     };
@@ -497,9 +491,10 @@ function tempelRel(lng, lat, jenis) {
         "icon-image": ["match", ["get", "moda"],
           "K", "kereta-K", "M", "kereta-M", "L", "kereta-L", "J", "kereta-J",
           "W", "kereta-W", "A", "kereta-A", "B", "kereta-B", "kereta-K"],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.52, 13, 1.02],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.55, 13, 1.05],
         "icon-allow-overlap": true,
         "icon-rotation-alignment": "map",
+        "icon-rotate": ["number", ["get", "arah"], 0],
       },
       paint: { "icon-opacity": 0.98 },
     });
@@ -575,9 +570,10 @@ function tempelRel(lng, lat, jenis) {
           "Angkutan Umum Integrasi", "mobil-angkot",
           "Rusun", "mobil-rusun",
           "bus-brt"],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.5, 14, 0.95],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 1],
         "icon-allow-overlap": true,
         "icon-rotation-alignment": "map",
+        "icon-rotate": ["number", ["get", "arah"], 0],
       },
       paint: { "icon-opacity": 0.97 },
     });
