@@ -184,7 +184,7 @@ function tempelRel(lng, lat) {
       "Cipatat–Sasaksaat": "#9aa0a6", "Rencana lain": "#8c9a84",
     };
     const susunRencana = (g) => ["match", ["get", "proyek"], ...Object.entries(WARNA_RENCANA).flat(), "#8c9a84"];
-    fetch("/rencana.geojson?v=1")
+    fetch("/rencana.geojson?v=2")
       .then((r) => r.json())
       .then((g) => {
         if (map.getSource("rencana")) return;
@@ -193,7 +193,7 @@ function tempelRel(lng, lat) {
           id: "rencana-garis",
           type: "line",
           source: "rencana",
-          filter: ["all", ["==", ["geometry-type"], "LineString"], ["!=", ["get", "proyek"], "MRT Timur–Barat (perkiraan)"]],
+          filter: ["all", ["==", ["geometry-type"], "LineString"], ["!=", ["get", "perkiraan"], true]],
           minzoom: 9.5,
           layout: { "line-cap": "butt", "line-join": "round" },
           paint: {
@@ -208,7 +208,7 @@ function tempelRel(lng, lat) {
           id: "rencana-perkiraan",
           type: "line",
           source: "rencana",
-          filter: ["==", ["get", "proyek"], "MRT Timur–Barat (perkiraan)"],
+          filter: ["==", ["get", "perkiraan"], true],
           minzoom: 9.5,
           layout: { "line-cap": "butt", "line-join": "round" },
           paint: {
@@ -223,7 +223,7 @@ function tempelRel(lng, lat) {
           id: "rencana-stasiun",
           type: "circle",
           source: "rencana",
-          filter: ["==", ["geometry-type"], "Point"],
+          filter: ["all", ["==", ["geometry-type"], "Point"], ["!", ["has", "catatan"]], ["!=", ["get", "perkiraan"], true]],
           minzoom: 10.5,
           paint: {
             "circle-radius": ["interpolate", ["linear"], ["zoom"], 10.5, 2.6, 14, 4.4],
@@ -236,7 +236,7 @@ function tempelRel(lng, lat) {
           id: "rencana-nama",
           type: "symbol",
           source: "rencana",
-          filter: ["==", ["geometry-type"], "Point"],
+          filter: ["all", ["==", ["geometry-type"], "Point"], ["!", ["has", "catatan"]]],
           minzoom: 12.5,
           layout: {
             "text-field": ["get", "nama"],
@@ -248,37 +248,25 @@ function tempelRel(lng, lat) {
           },
           paint: { "text-color": "#9fb094", "text-halo-color": "#050705", "text-halo-width": 1.2 },
         });
+      /* catatan di peta (ikut sumber rencana) */
+      map.addLayer({
+        id: "rencana-catatan",
+        type: "symbol",
+        source: "rencana",
+        filter: ["has", "catatan"],
+        minzoom: 10,
+        layout: {
+          "text-field": ["get", "catatan"],
+          "text-font": ["Noto Sans Regular"],
+          "text-size": 10.5,
+          "text-anchor": "left",
+          "text-offset": [0.7, 0],
+          "text-allow-overlap": true,
+        },
+        paint: { "text-color": "#e2c6ff", "text-halo-color": "#050705", "text-halo-width": 1.8 },
+      });
       })
       .catch(() => {});
-
-    /* catatan: kelanjutan yang belum ada geometrinya di OSM */
-    map.addSource("rencana-catatan", {
-      type: "geojson",
-      data: {
-        type: "FeatureCollection",
-        features: [
-          { type: "Feature", properties: { teks: "lanjut tahap 2 → Kaliabang · Cibitung · Cikarang" },
-            geometry: { type: "Point", coordinates: [106.9762, -6.1938] } },
-          { type: "Feature", properties: { teks: "garis perkiraan · tahap 2" },
-            geometry: { type: "Point", coordinates: [107.048, -6.2435] } },
-        ],
-      },
-    });
-    map.addLayer({
-      id: "rencana-catatan",
-      type: "symbol",
-      source: "rencana-catatan",
-      minzoom: 10.5,
-      layout: {
-        "text-field": ["get", "teks"],
-        "text-font": ["Noto Sans Regular"],
-        "text-size": 11,
-        "text-anchor": "left",
-        "text-offset": [0.7, 0],
-        "text-allow-overlap": true,
-      },
-      paint: { "text-color": "#e2c6ff", "text-halo-color": "#050705", "text-halo-width": 1.8 },
-    });
 
     window.__setRencana = (v) => {
       for (const id of ["rencana-garis", "rencana-perkiraan", "rencana-stasiun", "rencana-nama", "rencana-catatan"]) {
