@@ -235,8 +235,35 @@ function tempelRel(lng, lat) {
       })
       .catch(() => {});
 
+    /* catatan: kelanjutan yang belum ada geometrinya di OSM */
+    map.addSource("rencana-catatan", {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: [
+          { type: "Feature", properties: { teks: "lanjut tahap 2 → Kaliabang · Cibitung · Cikarang" },
+            geometry: { type: "Point", coordinates: [106.9762, -6.1938] } },
+        ],
+      },
+    });
+    map.addLayer({
+      id: "rencana-catatan",
+      type: "symbol",
+      source: "rencana-catatan",
+      minzoom: 10.5,
+      layout: {
+        "text-field": ["get", "teks"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 11,
+        "text-anchor": "left",
+        "text-offset": [0.7, 0],
+        "text-allow-overlap": true,
+      },
+      paint: { "text-color": "#e2c6ff", "text-halo-color": "#050705", "text-halo-width": 1.8 },
+    });
+
     window.__setRencana = (v) => {
-      for (const id of ["rencana-garis", "rencana-stasiun", "rencana-nama"]) {
+      for (const id of ["rencana-garis", "rencana-stasiun", "rencana-nama", "rencana-catatan"]) {
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
       }
     };
