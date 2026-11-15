@@ -485,18 +485,16 @@ function tempelRel(lng, lat, jenis) {
     });
     map.addLayer({
       id: "kereta-titik",
-      type: "symbol",
+      type: "circle",
       source: "kereta",
-      layout: {
-        "icon-image": ["match", ["get", "moda"],
-          "K", "kereta-K", "M", "kereta-M", "L", "kereta-L", "J", "kereta-J",
-          "W", "kereta-W", "A", "kereta-A", "B", "kereta-B", "kereta-K"],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.55, 13, 1.05],
-        "icon-allow-overlap": true,
-        "icon-rotation-alignment": "map",
-        "icon-rotate": ["number", ["get", "arah"], 0],
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 13, 7],
+        "circle-color": ["match", ["get", "moda"],
+          "K", "#58a874", "M", "#e0524a", "L", "#4a86e0", "J", "#d969b0",
+          "W", "#9b6bd6", "A", "#e6ece1", "B", "#d9a24b", "#8b978a"],
+        "circle-stroke-color": "#f2f6ee",
+        "circle-stroke-width": 1.1,
       },
-      paint: { "icon-opacity": 0.98 },
     });
 
     /* kamera CCTV publik di peta */
@@ -562,20 +560,20 @@ function tempelRel(lng, lat, jenis) {
     map.addSource("tj", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({
       id: "tj-titik",
-      type: "symbol",
+      type: "circle",
       source: "tj",
-      layout: {
-        "icon-image": ["match", ["get", "tipe"],
-          "Mikrotrans", "mobil-mikro",
-          "Angkutan Umum Integrasi", "mobil-angkot",
-          "Rusun", "mobil-rusun",
-          "bus-brt"],
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.55, 14, 1],
-        "icon-allow-overlap": true,
-        "icon-rotation-alignment": "map",
-        "icon-rotate": ["number", ["get", "arah"], 0],
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.6, 14, 5],
+        "circle-color": ["match", ["get", "tipe"],
+          "Mikrotrans", "#4fd1b5",
+          "BRT", "#f08a2c",
+          "Angkutan Umum Integrasi", "#a98be0",
+          "Rusun", "#e07fb8",
+          "#f08a2c"],
+        "circle-opacity": 0.95,
+        "circle-stroke-color": ["match", ["get", "tipe"], "Mikrotrans", "#06322b", "#1a0d04"],
+        "circle-stroke-width": ["match", ["get", "tipe"], "Mikrotrans", 0.9, 0.8],
       },
-      paint: { "icon-opacity": 0.97 },
     });
     /* jalur rute TJ dari OSM: koridor BRT selalu tampil, rute lain saat bus diklik */
     let ruteSiap = false;
@@ -737,7 +735,18 @@ function tempelRel(lng, lat, jenis) {
     if (antre.trains) pasang(antre.trains);
     if (antre.stations) map.getSource("stasiun")?.setData(keStasiun(antre.stations));
     if (antre.jalur) map.getSource("jalur")?.setData(keJalur(antre.jalur));
-    setInterval(() => { if (siap && !document.hidden) { gambar(); gambarTJ(); } }, 250);
+    /* kereta: gambar tiap frame (±30 fps) supaya gerak tidak patah-patah */
+    let laluGambar = 0;
+    const putarLingkar = (ts) => {
+      if (siap && !document.hidden && ts - laluGambar > 32) {
+        laluGambar = ts;
+        gambar();
+      }
+      requestAnimationFrame(putarLingkar);
+    };
+    requestAnimationFrame(putarLingkar);
+    /* bus TJ: 1.400+ titik, cukup 2,5× per detik */
+    setInterval(() => { if (siap && !document.hidden) gambarTJ(); }, 400);
   });
 
   if (import.meta.env.DEV) window.__diag = () => {
