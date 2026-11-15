@@ -484,9 +484,7 @@ function tempelRel(lng, lat, jenis) {
       type: "circle",
       source: "tj",
       paint: {
-        "circle-radius": ["match", ["get", "tipe"],
-          "Mikrotrans", ["interpolate", ["linear"], ["zoom"], 10, 2.2, 14, 4.2],
-          ["interpolate", ["linear"], ["zoom"], 10, 3, 14, 5.6]],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 2.6, 14, 5],
         "circle-color": ["match", ["get", "tipe"],
           "Mikrotrans", "#4fd1b5",
           "BRT", "#f08a2c",
