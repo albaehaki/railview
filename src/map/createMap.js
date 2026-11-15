@@ -193,7 +193,7 @@ function tempelRel(lng, lat) {
           id: "rencana-garis",
           type: "line",
           source: "rencana",
-          filter: ["==", ["geometry-type"], "LineString"],
+          filter: ["all", ["==", ["geometry-type"], "LineString"], ["!=", ["get", "proyek"], "MRT Timur–Barat (perkiraan)"]],
           minzoom: 9.5,
           layout: { "line-cap": "butt", "line-join": "round" },
           paint: {
@@ -203,6 +203,22 @@ function tempelRel(lng, lat) {
             "line-opacity": 0.85,
           },
         });
+        /* kelanjutan tahap 2: perkiraan, lebih pudar */
+        map.addLayer({
+          id: "rencana-perkiraan",
+          type: "line",
+          source: "rencana",
+          filter: ["==", ["get", "proyek"], "MRT Timur–Barat (perkiraan)"],
+          minzoom: 9.5,
+          layout: { "line-cap": "butt", "line-join": "round" },
+          paint: {
+            "line-color": "#a98be0",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 9.5, 1, 14, 1.8],
+            "line-dasharray": [1.2, 2],
+            "line-opacity": 0.45,
+          },
+        });
+
         map.addLayer({
           id: "rencana-stasiun",
           type: "circle",
@@ -243,6 +259,8 @@ function tempelRel(lng, lat) {
         features: [
           { type: "Feature", properties: { teks: "lanjut tahap 2 → Kaliabang · Cibitung · Cikarang" },
             geometry: { type: "Point", coordinates: [106.9762, -6.1938] } },
+          { type: "Feature", properties: { teks: "garis perkiraan · tahap 2" },
+            geometry: { type: "Point", coordinates: [107.048, -6.2435] } },
         ],
       },
     });
@@ -263,7 +281,7 @@ function tempelRel(lng, lat) {
     });
 
     window.__setRencana = (v) => {
-      for (const id of ["rencana-garis", "rencana-stasiun", "rencana-nama", "rencana-catatan"]) {
+      for (const id of ["rencana-garis", "rencana-perkiraan", "rencana-stasiun", "rencana-nama", "rencana-catatan"]) {
         if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v ? "visible" : "none");
       }
     };
