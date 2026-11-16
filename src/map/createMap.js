@@ -20,7 +20,7 @@ const SATELIT_TILE =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const KACA_H = 0.0008; // ±89 m — batas aman export Esri (512 px)
 
-export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca } = {}) {
+export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca, onGeser } = {}) {
   let tj = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
@@ -843,6 +843,7 @@ function tempelRel(lng, lat, jenis) {
           <div class="pkr-muat">rincian gagal dimuat (${String(err && err.message || err).slice(0, 40)})</div></div>`);
       }
     });
+    map.on("dragstart", () => { if (onGeser) onGeser(); });
     map.on("mouseenter", "kereta-titik", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kereta-titik", () => (map.getCanvas().style.cursor = ""));
 
@@ -898,6 +899,29 @@ function tempelRel(lng, lat, jenis) {
     map.addLayer({
       id: "kaca-garis", type: "line", source: "kaca", layout: sembunyi,
       paint: { "line-color": "#ffcf7a", "line-opacity": 0.95, "line-width": 1.4 },
+    });
+
+    /* ── lokasi pengguna ── */
+    map.addSource("aku", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({
+      id: "aku-akurasi", type: "fill", source: "aku",
+      filter: ["==", ["geometry-type"], "Polygon"],
+      paint: { "fill-color": "#4aa3ff", "fill-opacity": 0.16 },
+    });
+    map.addLayer({
+      id: "aku-akurasi-garis", type: "line", source: "aku",
+      filter: ["==", ["geometry-type"], "Polygon"],
+      paint: { "line-color": "#4aa3ff", "line-opacity": 0.6, "line-width": 1.2 },
+    });
+    map.addLayer({
+      id: "aku-titik", type: "circle", source: "aku",
+      filter: ["==", ["geometry-type"], "Point"],
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 5, 16, 7.5, 19, 9],
+        "circle-color": "#4aa3ff",
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 2.5,
+      },
     });
 
     map.on("click", (e) => {
@@ -1069,6 +1093,45 @@ function tempelRel(lng, lat, jenis) {
     };
   }
 
+  /* lingkaran akurasi dalam meter → polygon */
+  function lingkaran(lat, lng, meter) {
+    const pts = [];
+    const dLat = meter / 111320;
+    const dLng = meter / (111320 * Math.cos((lat * Math.PI) / 180));
+    for (let i = 0; i <= 48; i++) {
+      const a = (i / 48) * Math.PI * 2;
+      pts.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+    }
+    return pts;
+  }
+
+  function lokasiSaya(o) {
+    const src = map.getSource("aku");
+    if (!src) return;
+    if (!o || !Number.isFinite(o.lat) || !Number.isFinite(o.lng)) {
+      src.setData({ type: "FeatureCollection", features: [] });
+      return;
+    }
+    const feats = [{
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [o.lng, o.lat] },
+      properties: { akurasi: o.acc || 0 },
+    }];
+    if (o.acc && o.acc > 3) {
+      feats.push({
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [lingkaran(o.lat, o.lng, Math.min(o.acc, 500))] },
+        properties: {},
+      });
+    }
+    src.setData({ type: "FeatureCollection", features: feats });
+  }
+
+  function ikutLokasi(o) {
+    if (!o || !Number.isFinite(o.lat)) return;
+    map.easeTo({ center: [o.lng, o.lat], zoom: Math.max(map.getZoom(), 16), duration: 700 });
+  }
+
   /* kaca pembesar: 512 px citra di sekitar satu titik */
   function kacaKe(lat, lng, nama = "Area apron") {
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -1177,6 +1240,8 @@ function tempelRel(lng, lat, jenis) {
     },
     modeBandara,
     kacaKe,
+    lokasiSaya,
+    ikutLokasi,
     bandaraInfo: () => ({ aktif: bandaraAktif, kode: bandaraKode }),
     hentikan() {
       tj?.berhenti();

@@ -608,3 +608,12 @@ body {
   .kaca { width: 168px; right: 10px; bottom: 74px; }
   .daftar-gate { max-height: 132px; }
 }
+
+/* ── lokasi pengguna ── */
+.gps { position: absolute; left: 18px; bottom: 62px; z-index: 5; display: flex; align-items: center; gap: 8px;
+  padding: 7px 11px; border-radius: 10px; border: 1px solid rgba(74,163,255,.35); background: rgba(9,14,20,.92);
+  backdrop-filter: blur(10px); font: 400 10.5px/1 "IBM Plex Mono", monospace; color: #b9d8ff; }
+.gps b { color: #4aa3ff; font-weight: 500; letter-spacing: .12em; }
+.gps button { margin-left: 4px; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(74,163,255,.45);
+  background: rgba(74,163,255,.16); color: #d8ebff; font: inherit; cursor: pointer; }
+.gps.err { border-color: rgba(192,90,80,.5); color: #f0b8b2; }

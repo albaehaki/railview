@@ -59,6 +59,10 @@ export default function App() {
   const [bandaraInfo, setBandaraInfo] = useState(null);
   const [kaca, setKaca] = useState(null);
   const [cariGate, setCariGate] = useState("");
+  const [lokasi, setLokasi] = useState(null);
+  const [ikutLokasi, setIkutLokasi] = useState(false);
+  const [galatLokasi, setGalatLokasi] = useState("");
+  const watchRef = useRef(null);
   const bandaraRef = useRef(bandara);
   const kodeRef = useRef(bandaraKode);
   const [ringkas, setRingkas] = useState(() => localStorage.getItem("rv-ringkas") !== "0");
@@ -78,6 +82,8 @@ export default function App() {
   useEffect(() => { localStorage.setItem("rv-bandara", bandara ? "1" : "0"); bandaraRef.current = bandara; }, [bandara]);
   useEffect(() => { localStorage.setItem("rv-bandara-kode", bandaraKode); kodeRef.current = bandaraKode; }, [bandaraKode]);
   useEffect(() => { mapRef.current?.modeBandara(bandara, bandaraKode); }, [bandara, bandaraKode]);
+  useEffect(() => { if (ikutLokasi && lokasi) mapRef.current?.ikutLokasi(lokasi); }, [lokasi, ikutLokasi]);
+  useEffect(() => () => { if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current); }, []);
 
   /* H = buka/tutup laci */
   useEffect(() => {
@@ -186,6 +192,7 @@ export default function App() {
         onKamera: () => {},
         onBandara: (info) => setBandaraInfo(info),
         onKaca: (k) => setKaca(k),
+        onGeser: () => setIkutLokasi(false),
         /* klik kereta: cukup sorot jalurnya, rincian tampil di popup peta */
         onTrain: async (props) => {
           setPilih(props);
@@ -303,6 +310,34 @@ export default function App() {
 
   const bukaLaci = (v) => { setGeser(null); setLaci(v); };
 
+  const hentiLokasi = () => {
+    if (watchRef.current != null) { navigator.geolocation.clearWatch(watchRef.current); watchRef.current = null; }
+    setLokasi(null); setIkutLokasi(false); setGalatLokasi("");
+    mapRef.current?.lokasiSaya(null);
+  };
+
+  const toggleLokasi = () => {
+    if (watchRef.current != null) return hentiLokasi();
+    if (!navigator.geolocation) { setGalatLokasi("peranti ini tidak punya GPS"); return; }
+    setGalatLokasi("");
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const o = {
+          lat: pos.coords.latitude, lng: pos.coords.longitude,
+          acc: Math.round(pos.coords.accuracy || 0), arah: pos.coords.heading, t: Date.now(),
+        };
+        setLokasi(o);
+        mapRef.current?.lokasiSaya(o);
+        setIkutLokasi(true);
+      },
+      (err) => {
+        setGalatLokasi(err.code === 1 ? "izin lokasi ditolak" : "lokasi tidak terbaca");
+        watchRef.current = null;
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+  };
+
   return (
     <div className="app">
       <header className="topbar">
@@ -330,7 +365,18 @@ export default function App() {
         <div className="modes">
           <button className={mode === "helikopter" ? "on" : ""} onClick={() => setMode("helikopter")}>helikopter</button>
           <button className={mode === "datar" ? "on" : ""} onClick={() => setMode("datar")}>datar</button>
+          <button className={lokasi ? "on" : ""} onClick={toggleLokasi} title="tampilkan & ikuti lokasi perangkat ini">
+            {lokasi ? "lokasi on" : "lokasi saya"}
+          </button>
         </div>
+        {lokasi && (
+          <div className="gps">
+            <b>GPS</b> ±{lokasi.acc} m · {ikutLokasi ? "mengikuti" : "lepas"}
+            {!ikutLokasi && <button onClick={() => setIkutLokasi(true)}>ikuti</button>}
+          </div>
+        )}
+        {galatLokasi && <div className="gps err">{galatLokasi}</div>}
+
         <div className="stagefoot">
           <span><b>LIVE</b> {trains.length} kereta berjalan</span>
           <span>{total.tampil ? `${total.tampil} dari ${total.semua} kereta hari ini` : "—"}</span>
