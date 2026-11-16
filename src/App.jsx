@@ -62,6 +62,7 @@ export default function App() {
   const [lokasi, setLokasi] = useState(null);
   const [ikutLokasi, setIkutLokasi] = useState(false);
   const [galatLokasi, setGalatLokasi] = useState("");
+  const [kartuLokasi, setKartuLokasi] = useState(false);
   const watchRef = useRef(null);
   const bandaraRef = useRef(bandara);
   const kodeRef = useRef(bandaraKode);
@@ -193,6 +194,7 @@ export default function App() {
         onBandara: (info) => setBandaraInfo(info),
         onKaca: (k) => setKaca(k),
         onGeser: () => setIkutLokasi(false),
+        onLokasiKlik: () => setKartuLokasi(true),
         /* klik kereta: cukup sorot jalurnya, rincian tampil di popup peta */
         onTrain: async (props) => {
           setPilih(props);
@@ -365,10 +367,49 @@ export default function App() {
         <div className="modes">
           <button className={mode === "helikopter" ? "on" : ""} onClick={() => setMode("helikopter")}>helikopter</button>
           <button className={mode === "datar" ? "on" : ""} onClick={() => setMode("datar")}>datar</button>
-          <button className={lokasi ? "on" : ""} onClick={toggleLokasi} title="tampilkan & ikuti lokasi perangkat ini">
-            {lokasi ? "lokasi on" : "lokasi saya"}
-          </button>
         </div>
+        <button
+          className={"fab-lokasi" + (lokasi ? " aktif" : "") + (ikutLokasi ? " ikut" : "")}
+          onClick={toggleLokasi}
+          title={lokasi ? "hentikan lokasi" : "tampilkan lokasi saya"}
+          aria-label="lokasi saya"
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <circle cx="12" cy="12" r="3.2" />
+            <circle cx="12" cy="12" r="7.4" fill="none" strokeWidth="1.8" />
+            <path d="M12 1.6v3.2M12 19.2v3.2M1.6 12h3.2M19.2 12h3.2" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+
+        {lokasi && kartuLokasi && (
+          <div className="kartu-lokasi">
+            <div className="kl-kepala">
+              <span className="kl-titik" />
+              <div>
+                <b>Lokasi Anda</b>
+                <span>akurasi ±{lokasi.acc} m · {ikutLokasi ? "kamera mengikuti" : "kamera lepas"}</span>
+              </div>
+              <button className="kl-x" onClick={() => setKartuLokasi(false)} aria-label="tutup">×</button>
+            </div>
+            <div className="kl-koord">
+              <span>lintang</span><b>{lokasi.lat.toFixed(6)}</b>
+              <span>bujur</span><b>{lokasi.lng.toFixed(6)}</b>
+            </div>
+            <div className="kl-aksi">
+              <button onClick={() => { setIkutLokasi(true); mapRef.current?.ikutLokasi(lokasi); }}>
+                {ikutLokasi ? "tengah lagi" : "ikuti"}
+              </button>
+              <button
+                onClick={() => {
+                  const teks = `${lokasi.lat.toFixed(6)}, ${lokasi.lng.toFixed(6)}`;
+                  if (navigator.clipboard) navigator.clipboard.writeText(teks).catch(() => {});
+                }}
+              >salin koordinat</button>
+              <button onClick={hentiLokasi}>hentikan</button>
+            </div>
+          </div>
+        )}
+
         {lokasi && (
           <div className="gps">
             <b>GPS</b> ±{lokasi.acc} m · {ikutLokasi ? "mengikuti" : "lepas"}

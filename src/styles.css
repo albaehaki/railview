@@ -617,3 +617,37 @@ body {
 .gps button { margin-left: 4px; padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(74,163,255,.45);
   background: rgba(74,163,255,.16); color: #d8ebff; font: inherit; cursor: pointer; }
 .gps.err { border-color: rgba(192,90,80,.5); color: #f0b8b2; }
+
+/* ── layout ala gmaps: FAB lokasi + kartu lokasi ── */
+.fab-lokasi { position: absolute; right: 18px; bottom: 104px; z-index: 6; width: 48px; height: 48px; border-radius: 50%;
+  display: grid; place-items: center; border: 1px solid rgba(255,255,255,.14); background: rgba(11,15,11,.92);
+  backdrop-filter: blur(12px); color: #cdd6c6; cursor: pointer; box-shadow: 0 10px 26px rgba(0,0,0,.45); transition: .18s; }
+.fab-lokasi svg { fill: none; stroke: currentColor; }
+.fab-lokasi svg circle:first-child { fill: currentColor; stroke: none; }
+.fab-lokasi:hover { color: #e6ece1; border-color: rgba(255,255,255,.24); }
+.fab-lokasi.aktif { color: #4aa3ff; border-color: rgba(74,163,255,.5); }
+.fab-lokasi.ikut { background: #10233a; box-shadow: 0 0 0 3px rgba(74,163,255,.16), 0 10px 26px rgba(0,0,0,.45); }
+
+.kartu-lokasi { position: absolute; left: 18px; bottom: 104px; z-index: 6; width: 296px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.1); background: rgba(11,15,11,.95); backdrop-filter: blur(14px);
+  box-shadow: 0 22px 60px rgba(0,0,0,.55); overflow: hidden; }
+.kl-kepala { position: relative; display: flex; gap: 10px; align-items: center; padding: 12px 34px 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,.07); }
+.kl-titik { width: 10px; height: 10px; border-radius: 50%; background: #4aa3ff; border: 2px solid #fff; flex: none; }
+.kl-kepala b { display: block; font-size: 12.5px; color: var(--ink); }
+.kl-kepala span { display: block; font: 400 9.5px/1.35 "IBM Plex Mono", monospace; color: #8b9a83; margin-top: 3px; }
+.kl-x { position: absolute; right: 8px; top: 8px; width: 22px; height: 22px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(5,7,5,.7); color: #cdd6c6; cursor: pointer; }
+.kl-koord { display: grid; grid-template-columns: 62px 1fr; gap: 6px 8px; padding: 10px 12px; }
+.kl-koord span { font: 400 9px/1.4 "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: #79886f; }
+.kl-koord b { font: 500 11.5px/1.4 "IBM Plex Mono", monospace; color: #e6ece1; }
+.kl-aksi { display: flex; gap: 6px; padding: 0 12px 12px; }
+.kl-aksi button { flex: 1; padding: 7px 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04); color: #cdd6c6; font: 500 10px/1 "IBM Plex Mono", monospace; cursor: pointer; }
+.kl-aksi button:hover { border-color: rgba(74,163,255,.5); color: #d8ebff; }
+
+@media (max-width: 900px) {
+  .kartu-lokasi { left: 10px; right: 10px; width: auto; bottom: 86px; }
+  .fab-lokasi { right: 10px; bottom: 96px; width: 44px; height: 44px; }
+  .gps { bottom: 54px; left: 10px; }
+}

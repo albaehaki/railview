@@ -20,7 +20,7 @@ const SATELIT_TILE =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const KACA_H = 0.0008; // ±89 m — batas aman export Esri (512 px)
 
-export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca, onGeser } = {}) {
+export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca, onGeser, onLokasiKlik } = {}) {
   let tj = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
@@ -843,6 +843,9 @@ function tempelRel(lng, lat, jenis) {
           <div class="pkr-muat">rincian gagal dimuat (${String(err && err.message || err).slice(0, 40)})</div></div>`);
       }
     });
+    map.on("click", "aku-titik", () => { if (onLokasiKlik) onLokasiKlik(); });
+    map.on("mouseenter", "aku-titik", () => (map.getCanvas().style.cursor = "pointer"));
+    map.on("mouseleave", "aku-titik", () => (map.getCanvas().style.cursor = ""));
     map.on("dragstart", () => { if (onGeser) onGeser(); });
     map.on("mouseenter", "kereta-titik", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kereta-titik", () => (map.getCanvas().style.cursor = ""));
@@ -926,7 +929,7 @@ function tempelRel(lng, lat, jenis) {
 
     map.on("click", (e) => {
       if (!bandaraAktif) return;
-      const kena = map.queryRenderedFeatures(e.point, { layers: ["kereta-titik", "pesawat-ikon"] });
+      const kena = map.queryRenderedFeatures(e.point, { layers: ["kereta-titik", "pesawat-ikon", "aku-titik"] });
       if (kena.length) return;
       kacaKe(e.lngLat.lat, e.lngLat.lng, "Area apron");
     });
