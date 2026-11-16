@@ -60,6 +60,7 @@ export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, 
   /* ── mode bandara ── */
   let bandaraKode = null;
   let bandaraAktif = false;
+  let terbang = true; // true = helikopter (miring), false = datar
   const bandaraCache = {}; // kode → FeatureCollection
 
 /* ── penempel posisi ke rel (biar kereta tidak keluar jalur) ── */
@@ -1127,7 +1128,10 @@ function tempelRel(lng, lat, jenis) {
     LAPIS_BANDARA.forEach((id) => atur(id, true));
 
     map.stop();
-    map.flyTo({ center: [b.lng, b.lat], zoom: b.zoom, pitch: 0, bearing: 0, duration: 900 });
+    map.flyTo({
+      center: [b.lng, b.lat], zoom: b.zoom,
+      pitch: terbang ? 55 : 0, bearing: terbang ? -17 : 0, duration: 900,
+    });
 
     const jumlah = (k) => fc.features.filter((f) => f.properties.aeroway === k).length;
     const gates = fc.features
@@ -1161,6 +1165,7 @@ function tempelRel(lng, lat, jenis) {
       if (siap && map.getLayer("gedung-3d")) map.setPaintProperty("gedung-3d", "fill-extrusion-color", warnaGedung);
     },
     modeHelikopter(on) {
+      terbang = !!on;
       map.easeTo({ pitch: on ? 58 : 0, bearing: on ? -17 : 0, duration: 700 });
     },
     flyKe(lng, lat, zoom = 13) {
