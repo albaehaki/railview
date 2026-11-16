@@ -568,3 +568,43 @@ body {
 .cam-pop { display: block; width: 288px; height: 162px; border: 0; object-fit: cover; }
 .cam-kosong { width: 288px; height: 120px; display: grid; place-items: center; color: #6d7a66; font-size: 10px; }
 .pcam-s { font-size: 8px; color: #63735b; margin-top: 5px; letter-spacing: .04em; }
+
+/* ── mode bandara ── */
+.bstat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.bstat div { padding: 7px 9px; border: 1px solid rgba(255,255,255,.07); border-radius: 8px; background: rgba(255,255,255,.03); }
+.bstat span { display: block; font: 400 8.5px/1 "IBM Plex Mono", monospace; letter-spacing: .12em; text-transform: uppercase; color: #79886f; margin-bottom: 5px; }
+.bstat b { font: 600 18px/1 "Barlow Condensed", sans-serif; color: var(--ink); }
+.kecil { font: 400 9px/1 "IBM Plex Mono", monospace; color: #8b9a83; font-style: normal; margin-left: 6px; }
+.cari-gate { width: 100%; margin-bottom: 8px; padding: 7px 9px; border-radius: 8px; background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.09); color: var(--ink); font: 400 11px/1 "IBM Plex Mono", monospace; outline: none; }
+.cari-gate::placeholder { color: #6b7568; }
+.cari-gate:focus { border-color: rgba(217,162,75,.45); }
+.daftar-gate { display: flex; flex-direction: column; gap: 3px; max-height: 168px; overflow-y: auto; scrollbar-width: thin; }
+.gbtn { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border: 1px solid transparent; border-radius: 7px;
+  background: none; color: #a9b5a2; font-family: inherit; font-size: 11.5px; text-align: left; cursor: pointer; }
+.gbtn:hover { background: rgba(255,255,255,.05); color: var(--ink); }
+.gbtn b { font: 500 11px/1 "IBM Plex Mono", monospace; color: #f2d09a; min-width: 26px; }
+.gbtn span { font-size: 10px; color: #79886f; }
+
+/* kaca pembesar gate */
+.kaca { position: absolute; right: 18px; bottom: 62px; z-index: 6; width: 262px; border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,.1); background: rgba(11,15,11,.95); backdrop-filter: blur(14px);
+  box-shadow: 0 22px 60px rgba(0,0,0,.6); }
+.kaca header { display: flex; align-items: center; gap: 8px; padding: 8px 34px 8px 11px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.kaca header b { font: 500 9px/1 "IBM Plex Mono", monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+.kaca header span { margin-left: auto; font: 400 8.5px/1 "IBM Plex Mono", monospace; color: #8b9a83; }
+.kaca-img { position: relative; aspect-ratio: 1/1; background: #0a0e0a; }
+.kaca-ring { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  border: 1px solid rgba(255,207,122,.8); border-radius: 50%; box-shadow: 0 0 0 1px rgba(5,7,5,.55); }
+.kaca-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.kaca footer { display: flex; align-items: center; gap: 8px; padding: 8px 11px; font-size: 10.5px; color: #a9b5a2; }
+.kaca footer b { font-weight: 500; color: #e6ece1; }
+.kaca footer .tag { margin-left: auto; border-color: #4a3c22; background: #17130a; color: #f2d09a; }
+.kaca-x { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(5,7,5,.8); color: #cdd6c6; font-size: 14px; line-height: 1; cursor: pointer; }
+.kaca-x:hover { background: rgba(217,162,75,.2); color: #fff; }
+
+@media (max-width: 900px) {
+  .kaca { width: 168px; right: 10px; bottom: 74px; }
+  .daftar-gate { max-height: 132px; }
+}

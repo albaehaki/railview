@@ -54,6 +54,13 @@ export default function App() {
   const [jumlahStasiun, setJumlahStasiun] = useState(0);
   const [rencana, setRencana] = useState(() => localStorage.getItem("rv-rencana") !== "0");
   const [pesawat, setPesawat] = useState(() => localStorage.getItem("rv-pesawat") !== "0");
+  const [bandara, setBandara] = useState(() => localStorage.getItem("rv-bandara") === "1");
+  const [bandaraKode, setBandaraKode] = useState(() => localStorage.getItem("rv-bandara-kode") || "CGK");
+  const [bandaraInfo, setBandaraInfo] = useState(null);
+  const [kaca, setKaca] = useState(null);
+  const [cariGate, setCariGate] = useState("");
+  const bandaraRef = useRef(bandara);
+  const kodeRef = useRef(bandaraKode);
   const [ringkas, setRingkas] = useState(() => localStorage.getItem("rv-ringkas") !== "0");
   const [laci, setLaci] = useState(() => {
     const q = new URLSearchParams(location.search);
@@ -68,6 +75,9 @@ export default function App() {
   useEffect(() => { localStorage.setItem("rv-ringkas", ringkas ? "1" : "0"); }, [ringkas]);
   useEffect(() => { window.__setRencana?.(rencana); }, [rencana]);
   useEffect(() => { window.__setPesawat?.(pesawat); }, [pesawat]);
+  useEffect(() => { localStorage.setItem("rv-bandara", bandara ? "1" : "0"); bandaraRef.current = bandara; }, [bandara]);
+  useEffect(() => { localStorage.setItem("rv-bandara-kode", bandaraKode); kodeRef.current = bandaraKode; }, [bandaraKode]);
+  useEffect(() => { mapRef.current?.modeBandara(bandara, bandaraKode); }, [bandara, bandaraKode]);
 
   /* H = buka/tutup laci */
   useEffect(() => {
@@ -174,6 +184,8 @@ export default function App() {
         onBus: (n) => setBus(n),
         onStasiun: (n) => setJumlahStasiun(n),
         onKamera: () => {},
+        onBandara: (info) => setBandaraInfo(info),
+        onKaca: (k) => setKaca(k),
         /* klik kereta: cukup sorot jalurnya, rincian tampil di popup peta */
         onTrain: async (props) => {
           setPilih(props);
@@ -186,6 +198,7 @@ export default function App() {
         },
       });
       mapRef.current = map;
+      if (bandaraRef.current) map.modeBandara(true, kodeRef.current);
 
       const muat = async () => {
         try {
@@ -322,6 +335,18 @@ export default function App() {
           <span><b>LIVE</b> {trains.length} kereta berjalan</span>
           <span>{total.tampil ? `${total.tampil} dari ${total.semua} kereta hari ini` : "—"}</span>
         </div>
+
+        {bandara && kaca && (
+          <div className="kaca">
+            <header>
+              <b>Kaca pembesar</b>
+              <span>{kaca.lng.toFixed(4)} · {kaca.lat.toFixed(4)}</span>
+            </header>
+            <div className="kaca-img"><img src={kaca.url} alt={`Citra ${kaca.nama}`} /><i className="kaca-ring" /></div>
+            <footer><b>{kaca.nama}</b><span className="tag">STATIS</span></footer>
+            <button className="kaca-x" onClick={() => setKaca(null)} aria-label="tutup kaca pembesar">×</button>
+          </div>
+        )}
       </main>
 
       {/* kartu ringkas kanan atas */}
@@ -366,6 +391,9 @@ export default function App() {
           <button className={"lt" + (tab === "lapisan" ? " on" : "")} onClick={() => setTab("lapisan")}>
             Lapisan <u>{["K", "M", "L", "J", "W", "A", "B"].filter((m) => jumlah(m)).length + 2}</u>
           </button>
+          <button className={"lt" + (tab === "bandara" ? " on" : "")} onClick={() => setTab("bandara")}>
+            Bandara <u>{bandara ? bandaraInfo?.jumlah?.gate ?? "on" : "off"}</u>
+          </button>
           <button className={"lt" + (tab === "warna" ? " on" : "")} onClick={() => setTab("warna")}>
             Warna
           </button>
@@ -380,6 +408,10 @@ export default function App() {
                 <h5>Lapisan</h5>
                 <div className="pil">
                   <span className="hidup"><i style={{ background: "#f08a2c" }} />TransJakarta<b>{bus}</b></span>
+                  <span
+                    className={bandara ? "hidup" : "mati"}
+                    onClick={() => setBandara((v) => !v)}
+                  ><i style={{ background: "#d9a24b" }} />Mode bandara<b>{bandara ? bandaraKode : "off"}</b></span>
                   <span
                     className={pesawat ? "hidup" : "mati"}
                     onClick={() => { const v = !pesawat; setPesawat(v); localStorage.setItem("rv-pesawat", v ? "1" : "0"); }}
@@ -412,6 +444,78 @@ export default function App() {
                   Posisi kereta dihitung dari jadwal GAPEKA dan titik jalur, bukan GPS tiap kereta.
                   Bus TransJakarta langsung dari broker publik. Pesawat dari adsb.lol.
                 </p>
+              </div>
+            </div>
+          )}
+
+          {tab === "bandara" && (
+            <div className="lgrid">
+              <div className="kartu">
+                <h5>Bandara</h5>
+                <div className="pil">
+                  {[
+                    { k: "CGK", n: "Soekarno–Hatta" },
+                    { k: "HLP", n: "Halim" },
+                  ].map((b) => (
+                    <span
+                      key={b.k}
+                      className={bandara && bandaraKode === b.k ? "hidup" : ""}
+                      onClick={() => { setBandaraKode(b.k); setBandara(true); }}
+                    >{b.k}</span>
+                  ))}
+                  <span
+                    className={bandara ? "mati" : "hidup"}
+                    onClick={() => setBandara((v) => !v)}
+                  >{bandara ? "matikan satelit" : "aktifkan satelit"}</span>
+                </div>
+
+                {bandaraInfo ? (
+                  <>
+                    <h5 style={{ marginTop: 14 }}>{bandaraInfo.nama} · {bandaraInfo.kode}/{bandaraInfo.icao}</h5>
+                    <div className="bstat">
+                      <div><span>gate</span><b>{bandaraInfo.jumlah.gate}</b></div>
+                      <div><span>stand</span><b>{bandaraInfo.jumlah.stand}</b></div>
+                      <div><span>landasan</span><b>{bandaraInfo.jumlah.runway}</b></div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="note">Pilih CGK atau HLP untuk memuat apron &amp; gate.</p>
+                )}
+
+                <h5 style={{ marginTop: 14 }}>Catatan data</h5>
+                <p className="note">
+                  Citra satelit Esri itu <b>potret statis</b>, bukan siaran langsung: pesawat yang terlihat sedang bersandar
+                  pada saat citra diambil. Pesawat parkir mematikan transponder, jadi tidak muncul di lapisan ADS-B.
+                  Gate &amp; marka stand dari OpenStreetMap.
+                </p>
+              </div>
+
+              <div className="kartu">
+                <h5>Gate {bandaraInfo ? <em className="kecil">{bandaraInfo.gates.length}</em> : null}</h5>
+                <input
+                  className="cari-gate"
+                  value={cariGate}
+                  onChange={(e) => setCariGate(e.target.value)}
+                  placeholder="cari gate — F1, A3, 1C"
+                />
+                <div className="daftar-gate">
+                  {(bandaraInfo?.gates || [])
+                    .filter((g) => g.ref.toLowerCase().includes(cariGate.trim().toLowerCase()))
+                    .slice(0, 80)
+                    .map((g) => (
+                      <button
+                        key={g.ref}
+                        className="gbtn"
+                        onClick={() => {
+                          mapRef.current?.map?.flyTo({ center: [g.lng, g.lat], zoom: 18.4, pitch: 0, bearing: 0, duration: 700 });
+                          mapRef.current?.kacaKe(g.lat, g.lng, `Gate ${g.ref}`);
+                        }}
+                      >
+                        <b>{g.ref}</b><span>kontak gate</span>
+                      </button>
+                    ))}
+                  {bandaraInfo && !bandaraInfo.gates.length && <p className="note">Bandara ini belum punya data gate di OSM.</p>}
+                </div>
               </div>
             </div>
           )}

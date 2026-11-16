@@ -4,7 +4,23 @@ import "maplibre-gl/dist/maplibre-gl.css";
 const STYLE = "https://tiles.openfreemap.org/styles/dark";
 const PUSAT = [106.86, -6.22];
 
-export function createMap(el, { onTrain, onKamera, onBus, onStasiun } = {}) {
+/* Bandara yang punya geometri apron/gate/stand (OpenStreetMap) */
+const BANDARA = {
+  CGK: {
+    kode: "CGK", icao: "WIII", nama: "Soekarno–Hatta", kota: "Tangerang",
+    lng: 106.6572, lat: -6.1190, zoom: 16.4, geo: "/bandara-cgk.geojson",
+  },
+  HLP: {
+    kode: "HLP", icao: "WIHH", nama: "Halim Perdanakusuma", kota: "Jakarta Timur",
+    lng: 106.8906, lat: -6.2666, zoom: 15.9, geo: "/bandara-hlp.geojson",
+  },
+};
+
+const SATELIT_TILE =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const KACA_H = 0.0008; // ±89 m — batas aman export Esri (512 px)
+
+export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca } = {}) {
   let tj = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
@@ -40,6 +56,11 @@ export function createMap(el, { onTrain, onKamera, onBus, onStasiun } = {}) {
   let warnaGedung = exprWarna({ low: "#252d20", mid: "#2f3728", high: "#3a4432" });
   let siap = false;
   const antre = { trains: null, stations: null, jalur: null };
+
+  /* ── mode bandara ── */
+  let bandaraKode = null;
+  let bandaraAktif = false;
+  const bandaraCache = {}; // kode → FeatureCollection
 
 /* ── penempel posisi ke rel (biar kereta tidak keluar jalur) ── */
 const relSeg = new Map();
@@ -101,6 +122,27 @@ function tempelRel(lng, lat, jenis) {
 }
 
   map.on("load", () => {
+    /* satelit bandara — paling bawah, hanya muncul di mode bandara */
+    map.addSource("satelit", {
+      type: "raster",
+      tiles: [SATELIT_TILE],
+      tileSize: 256,
+      maxzoom: 19,
+      attribution: "Citra: Esri, Maxar, Earthstar Geographics",
+    });
+    map.addLayer({
+      id: "satelit",
+      type: "raster",
+      source: "satelit",
+      layout: { visibility: "none" },
+      paint: {
+        "raster-opacity": 1,
+        "raster-brightness-max": 0.9,
+        "raster-contrast": 0.06,
+        "raster-saturation": -0.12,
+      },
+    });
+
     /* gedung 3D */
     map.addLayer({
       id: "gedung-3d",
@@ -770,7 +812,14 @@ function tempelRel(lng, lat, jenis) {
 
       try {
         const j = await fetch(`/api/rail?what=jalur&id=${encodeURIComponent(p.id)}`).then((r) => r.json());
-        if (!j || !j.jalur) return;
+        if (!j || !j.jalur) {
+          pop.setHTML(`<div class="pkr">
+              <div class="pkr-atas"><span class="pkr-kode">${p.kode || p.id}</span><span class="pkr-moda">${MODA[p.moda] || p.moda}</span></div>
+              <div class="pkr-sub">kereta ini tidak membawa data jalur (kirim rangkaian / di luar layanan)</div>
+              <div class="pkr-kaki">sumber: 168railway</div>
+            </div>`);
+          return;
+        }
         const jalur = j.jalur;
         const iNext = Math.max(0, jalur.findIndex((s) => s.st === p.next));
         const lewat = jalur.slice(iNext, iNext + 4);
@@ -795,6 +844,75 @@ function tempelRel(lng, lat, jenis) {
     });
     map.on("mouseenter", "kereta-titik", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kereta-titik", () => (map.getCanvas().style.cursor = ""));
+
+    /* ── lapisan bandara: apron, gate, marka stand ── */
+    map.addSource("bandara", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    const aba = (k) => ["==", ["get", "aeroway"], k];
+    const sembunyi = { visibility: "none" };
+
+    map.addLayer({
+      id: "bd-landasan", type: "line", source: "bandara", filter: aba("runway"), layout: sembunyi,
+      paint: { "line-color": "#f2f5ee", "line-opacity": 0.5,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 3, 16, 18, 19, 40] },
+    });
+    map.addLayer({
+      id: "bd-taksi", type: "line", source: "bandara", filter: aba("taxiway"), layout: sembunyi,
+      paint: { "line-color": "#ffd894", "line-opacity": 0.45,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 13, 1, 16, 5, 19, 14] },
+    });
+    map.addLayer({
+      id: "bd-apron", type: "line", source: "bandara", filter: aba("apron"), layout: sembunyi,
+      paint: { "line-color": "#ffffff", "line-opacity": 0.28, "line-width": 1, "line-dasharray": [3, 2] },
+    });
+    map.addLayer({
+      id: "bd-terminal", type: "fill", source: "bandara", filter: aba("terminal"), layout: sembunyi,
+      paint: { "fill-color": "#d9a24b", "fill-opacity": 0.12 },
+    });
+    map.addLayer({
+      id: "bd-terminal-garis", type: "line", source: "bandara", filter: aba("terminal"), layout: sembunyi,
+      paint: { "line-color": "#e0ad5c", "line-opacity": 0.9, "line-width": 1.5 },
+    });
+    map.addLayer({
+      id: "bd-stand", type: "line", source: "bandara", filter: aba("parking_position"), layout: sembunyi,
+      paint: { "line-color": "#ffcf7a", "line-opacity": 0.5,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 14, 0.7, 17, 1.7, 19, 2.6] },
+    });
+    map.addLayer({
+      id: "bd-gate", type: "circle", source: "bandara", filter: aba("gate"), layout: sembunyi,
+      paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 2.6, 18, 5.5],
+        "circle-color": "#ffcf7a", "circle-stroke-color": "#050705", "circle-stroke-width": 1.4 },
+    });
+    map.addLayer({
+      id: "bd-gate-nama", type: "symbol", source: "bandara", filter: aba("gate"), minzoom: 15,
+      layout: { ...sembunyi, "text-field": ["get", "ref"], "text-font": ["Noto Sans Regular"],
+        "text-size": 10.5, "text-offset": [0, 1.15], "text-anchor": "top", "text-padding": 3 },
+      paint: { "text-color": "#ffe7bd", "text-halo-color": "#050705", "text-halo-width": 1.8 },
+    });
+
+    map.addSource("kaca", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    map.addLayer({
+      id: "kaca-isi", type: "fill", source: "kaca", layout: sembunyi,
+      paint: { "fill-color": "#ffcf7a", "fill-opacity": 0.1 },
+    });
+    map.addLayer({
+      id: "kaca-garis", type: "line", source: "kaca", layout: sembunyi,
+      paint: { "line-color": "#ffcf7a", "line-opacity": 0.95, "line-width": 1.4 },
+    });
+
+    map.on("click", (e) => {
+      if (!bandaraAktif) return;
+      const kena = map.queryRenderedFeatures(e.point, { layers: ["kereta-titik", "pesawat-ikon"] });
+      if (kena.length) return;
+      kacaKe(e.lngLat.lat, e.lngLat.lng, "Area apron");
+    });
+
+    /* mode bandara sudah diminta sebelum gaya selesai dimuat → terapkan sekarang */
+    if (bandaraAktif && bandaraKode && bandaraCache[bandaraKode]) {
+      map.getSource("bandara")?.setData(bandaraCache[bandaraKode]);
+      atur("satelit", true);
+      atur("gedung-3d", false);
+      LAPIS_BANDARA.forEach((id) => atur(id, true));
+    }
 
     siap = true;
     if (antre.trains) pasang(antre.trains);
@@ -950,6 +1068,81 @@ function tempelRel(lng, lat, jenis) {
     };
   }
 
+  /* kaca pembesar: 512 px citra di sekitar satu titik */
+  function kacaKe(lat, lng, nama = "Area apron") {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const kotak = [
+      [lng - KACA_H, lat - KACA_H], [lng + KACA_H, lat - KACA_H],
+      [lng + KACA_H, lat + KACA_H], [lng - KACA_H, lat + KACA_H], [lng - KACA_H, lat - KACA_H],
+    ];
+    map.getSource("kaca")?.setData({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [kotak] }, properties: {} }],
+    });
+    const bbox = [lng - KACA_H, lat - KACA_H, lng + KACA_H, lat + KACA_H].map((n) => n.toFixed(5)).join(",");
+    const url =
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export" +
+      `?bbox=${bbox}&bboxSR=4326&imageSR=3857&size=512,512&format=jpg&f=image`;
+    if (onKaca) onKaca({ lat, lng, url, nama, bandara: bandaraKode });
+    return url;
+  }
+
+  const LAPIS_BANDARA = [
+    "bd-landasan", "bd-taksi", "bd-apron", "bd-terminal", "bd-terminal-garis",
+    "bd-stand", "bd-gate", "bd-gate-nama", "kaca-isi", "kaca-garis",
+  ];
+  const atur = (id, v) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", v ? "visible" : "none"); };
+
+  /* masuk/keluar mode bandara: satelit + geometri apron */
+  async function modeBandara(on, kode = bandaraKode || "CGK") {
+    if (!on) {
+      bandaraAktif = false;
+      atur("satelit", false);
+      atur("gedung-3d", true);
+      LAPIS_BANDARA.forEach((id) => atur(id, false));
+      if (onKaca) onKaca(null);
+      return;
+    }
+    const b = BANDARA[kode];
+    if (!b) return;
+    bandaraKode = kode;
+    bandaraAktif = true;
+
+    let fc = bandaraCache[kode];
+    if (!fc) {
+      try {
+        fc = await fetch(`${b.geo}?v=1`).then((r) => r.json());
+        bandaraCache[kode] = fc;
+      } catch (e) {
+        bandaraAktif = false;
+        console.error("BANDARA", e);
+        return;
+      }
+    }
+    if (!bandaraAktif || bandaraKode !== kode) return; // dibatalkan saat menunggu
+
+    map.getSource("bandara")?.setData(fc);
+    atur("satelit", true);
+    atur("gedung-3d", false);
+    LAPIS_BANDARA.forEach((id) => atur(id, true));
+
+    map.stop();
+    map.flyTo({ center: [b.lng, b.lat], zoom: b.zoom, pitch: 0, bearing: 0, duration: 900 });
+
+    const jumlah = (k) => fc.features.filter((f) => f.properties.aeroway === k).length;
+    const gates = fc.features
+      .filter((f) => f.properties.aeroway === "gate")
+      .map((f) => ({ ref: f.properties.ref || "—", lng: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] }))
+      .sort((x, y) => x.ref.localeCompare(y.ref, "id", { numeric: true }));
+
+    kacaKe(b.lat, b.lng, `Apron ${b.kode}`);
+
+    if (onBandara) onBandara({
+      kode, icao: b.icao, nama: b.nama, kota: b.kota, gates,
+      jumlah: { gate: jumlah("gate"), stand: jumlah("parking_position"), runway: jumlah("runway"), taxiway: jumlah("taxiway") },
+    });
+  }
+
   return {
     setTrains(trains) {
       antre.trains = trains;
@@ -977,6 +1170,9 @@ function tempelRel(lng, lat, jenis) {
     resize() {
       map.resize();
     },
+    modeBandara,
+    kacaKe,
+    bandaraInfo: () => ({ aktif: bandaraAktif, kode: bandaraKode }),
     hentikan() {
       tj?.berhenti();
     },
