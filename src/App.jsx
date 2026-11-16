@@ -63,6 +63,10 @@ export default function App() {
   const [ikutLokasi, setIkutLokasi] = useState(false);
   const [galatLokasi, setGalatLokasi] = useState("");
   const [kartuLokasi, setKartuLokasi] = useState(false);
+  const [jawa, setJawa] = useState({ rel: true, stasiun: true, bandara: true, terminal: true, halte: false });
+  const [jawaN, setJawaN] = useState({});
+  const [zPeta, setZPeta] = useState(9.2);
+  const jawaRef = useRef(jawa);
   const watchRef = useRef(null);
   const bandaraRef = useRef(bandara);
   const kodeRef = useRef(bandaraKode);
@@ -84,6 +88,10 @@ export default function App() {
   useEffect(() => { localStorage.setItem("rv-bandara-kode", bandaraKode); kodeRef.current = bandaraKode; }, [bandaraKode]);
   useEffect(() => { mapRef.current?.modeBandara(bandara, bandaraKode); }, [bandara, bandaraKode]);
   useEffect(() => { if (ikutLokasi && lokasi) mapRef.current?.ikutLokasi(lokasi); }, [lokasi, ikutLokasi]);
+  useEffect(() => {
+    jawaRef.current = jawa;
+    Object.entries(jawa).forEach(([k, v]) => mapRef.current?.setJawa(k, v));
+  }, [jawa]);
   useEffect(() => () => { if (watchRef.current != null) navigator.geolocation.clearWatch(watchRef.current); }, []);
 
   /* H = buka/tutup laci */
@@ -195,6 +203,8 @@ export default function App() {
         onKaca: (k) => setKaca(k),
         onGeser: () => setIkutLokasi(false),
         onLokasiKlik: () => setKartuLokasi(true),
+        onJawa: (jenis, n) => setJawaN((o) => ({ ...o, [jenis]: n })),
+        onZoom: (z) => setZPeta(z),
         /* klik kereta: cukup sorot jalurnya, rincian tampil di popup peta */
         onTrain: async (props) => {
           setPilih(props);
@@ -208,6 +218,7 @@ export default function App() {
       });
       mapRef.current = map;
       if (bandaraRef.current) map.modeBandara(true, kodeRef.current);
+      Object.entries(jawaRef.current).forEach(([k, v]) => { if (v) map.setJawa(k, true); });
 
       const muat = async () => {
         try {
@@ -344,7 +355,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">RailView<i>pantau publik</i></div>
-        <div className="crumbs"><b>JABODETABEK</b> / {status === "siap" ? "data langsung" : status === "memuat" ? "memuat…" : "gangguan"}</div>
+        <div className="crumbs"><b>{zPeta < 8 ? "JAWA" : "JABODETABEK"}</b> / {status === "siap" ? "data langsung" : status === "memuat" ? "memuat…" : "gangguan"}</div>
         <div className="meta">
           <span><b>{trains.length}</b> aktif</span>
           <span><b>{bus}</b> bus</span>
@@ -367,6 +378,10 @@ export default function App() {
         <div className="modes">
           <button className={mode === "helikopter" ? "on" : ""} onClick={() => setMode("helikopter")}>helikopter</button>
           <button className={mode === "datar" ? "on" : ""} onClick={() => setMode("datar")}>datar</button>
+          <button
+            onClick={() => mapRef.current?.map?.fitBounds([[105.05, -8.95], [114.65, -5.60]], { padding: 40, duration: 900, pitch: 0, bearing: 0 })}
+            title="lihat seluruh Jawa"
+          >jawa</button>
         </div>
         <button
           className={"fab-lokasi" + (lokasi ? " aktif" : "") + (ikutLokasi ? " ikut" : "")}
@@ -508,6 +523,22 @@ export default function App() {
                     onClick={() => { const v = !rencana; setRencana(v); localStorage.setItem("rv-rencana", v ? "1" : "0"); }}
                   ><i style={{ background: "#c07be0" }} />Jalur rencana<b>{rencana ? "on" : "off"}</b></span>
                   <span className="hidup"><i style={{ background: "#8FA7C4" }} />Stasiun<b>{jumlahStasiun || 158}</b></span>
+                  {[
+                    { k: "rel", n: "Rel Jawa", c: "#6f7f63" },
+                    { k: "stasiun", n: "Stasiun Jawa", c: "#9fb3c8" },
+                    { k: "bandara", n: "Bandara", c: "#ffcf7a" },
+                    { k: "terminal", n: "Terminal bus", c: "#7fd6b0" },
+                    { k: "halte", n: "Halte", c: "#58a874" },
+                  ].map((x) => (
+                    <span
+                      key={x.k}
+                      className={jawa[x.k] ? "hidup" : "mati"}
+                      onClick={() => setJawa((o) => ({ ...o, [x.k]: !o[x.k] }))}
+                    >
+                      <i style={{ background: x.c }} />{x.n}
+                      <b>{jawa[x.k] ? (jawaN[x.k] ?? "on") : "off"}</b>
+                    </span>
+                  ))}
                 </div>
                 <h5 style={{ marginTop: 14 }}>Keterangan</h5>
                 <div className="legend">

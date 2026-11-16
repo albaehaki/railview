@@ -16,11 +16,20 @@ const BANDARA = {
   },
 };
 
+/* data se-Jawa (dibuat oleh tools/convert-jawa.py) */
+const JAWA_SUMBER = {
+  rel: { id: "jawa_rel", url: "/jawa-rel.geojson?v=1" },
+  stasiun: { id: "jawa_stasiun", url: "/jawa-stasiun.geojson?v=1" },
+  bandara: { id: "jawa_bandara", url: "/jawa-bandara.geojson?v=1" },
+  terminal: { id: "jawa_terminal", url: "/jawa-terminal.geojson?v=1" },
+  halte: { id: "jawa_halte", url: "/jawa-halte.geojson?v=1" },
+};
+
 const SATELIT_TILE =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 const KACA_H = 0.0008; // ±89 m — batas aman export Esri (512 px)
 
-export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca, onGeser, onLokasiKlik } = {}) {
+export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca, onGeser, onLokasiKlik, onJawa, onZoom } = {}) {
   let tj = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
@@ -847,6 +856,8 @@ function tempelRel(lng, lat, jenis) {
     map.on("mouseenter", "aku-titik", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "aku-titik", () => (map.getCanvas().style.cursor = ""));
     map.on("dragstart", () => { if (onGeser) onGeser(); });
+    map.on("zoom", () => { if (onZoom) onZoom(map.getZoom()); });
+    if (onZoom) onZoom(map.getZoom());
     map.on("mouseenter", "kereta-titik", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kereta-titik", () => (map.getCanvas().style.cursor = ""));
 
@@ -903,6 +914,128 @@ function tempelRel(lng, lat, jenis) {
       id: "kaca-garis", type: "line", source: "kaca", layout: sembunyi,
       paint: { "line-color": "#ffcf7a", "line-opacity": 0.95, "line-width": 1.4 },
     });
+
+    /* ── lapisan se-Jawa: rel, stasiun, bandara, terminal, halte ── */
+    const ikonJawa = (id, gambar) => {
+      if (map.hasImage(id)) return;
+      const c = document.createElement("canvas");
+      c.width = c.height = 36;
+      const x = c.getContext("2d");
+      x.translate(18, 18);
+      gambar(x);
+      map.addImage(id, x.getImageData(0, 0, 36, 36), { pixelRatio: 2 });
+    };
+    const bulatan = (x, warna) => {
+      x.beginPath(); x.arc(0, 0, 15, 0, Math.PI * 2);
+      x.fillStyle = "#0b0f0b"; x.fill();
+      x.lineWidth = 1.8; x.strokeStyle = warna; x.stroke();
+    };
+    ikonJawa("jw-bandara", (x) => {
+      bulatan(x, "#ffcf7a");
+      x.fillStyle = "#ffcf7a";
+      x.beginPath();
+      x.moveTo(0, -9); x.lineTo(2.2, -2); x.lineTo(9.5, 2); x.lineTo(9.5, 4);
+      x.lineTo(2.2, 2.2); x.lineTo(1.6, 7); x.lineTo(5, 8.6); x.lineTo(5, 9.8);
+      x.lineTo(0, 9.2); x.lineTo(-5, 9.8); x.lineTo(-5, 8.6); x.lineTo(-1.6, 7);
+      x.lineTo(-2.2, 2.2); x.lineTo(-9.5, 4); x.lineTo(-9.5, 2); x.lineTo(-2.2, -2);
+      x.closePath(); x.fill();
+    });
+    ikonJawa("jw-terminal", (x) => {
+      bulatan(x, "#7fd6b0");
+      x.fillStyle = "#7fd6b0";
+      x.fillRect(-8, -8, 16, 11);
+      x.beginPath(); x.arc(-5, 5.4, 2.1, 0, Math.PI * 2); x.fill();
+      x.beginPath(); x.arc(5, 5.4, 2.1, 0, Math.PI * 2); x.fill();
+      x.fillStyle = "#0b0f0b";
+      x.fillRect(-6, -6, 4.6, 4); x.fillRect(1.4, -6, 4.6, 4);
+    });
+    ikonJawa("jw-halte", (x) => {
+      bulatan(x, "#58a874");
+      x.strokeStyle = "#58a874"; x.lineWidth = 1.8; x.lineCap = "round";
+      x.beginPath(); x.moveTo(0, 9); x.lineTo(0, -9); x.stroke();
+      x.fillStyle = "#58a874";
+      x.beginPath(); x.arc(0, -9, 3.2, 0, Math.PI * 2); x.fill();
+    });
+
+    for (const k of Object.values(JAWA_SUMBER)) {
+      map.addSource(k.id, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    }
+    for (const [k, g] of Object.entries(jawaCache)) {
+      map.getSource(JAWA_SUMBER[k].id)?.setData(g);
+    }
+
+    map.addLayer({
+      id: "jawa-rel-garis", type: "line", source: "jawa_rel", layout: sembunyi, minzoom: 6,
+      paint: {
+        "line-color": ["match", ["get", "kelas"],
+          "light_rail", "#b98ad0", "subway", "#7b9fd6", "narrow_gauge", "#a99172", "#6f7f63"],
+        "line-opacity": 0.7,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 0.5, 11, 1.4, 15, 2.6],
+      },
+    });
+    map.addLayer({
+      id: "jawa-stasiun-titik", type: "circle", source: "jawa_stasiun", layout: sembunyi, minzoom: 6.5,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.2, 13, 4, 17, 5.5],
+        "circle-color": "#9fb3c8", "circle-stroke-color": "#0b0f0b", "circle-stroke-width": 1.2,
+        "circle-opacity": 0.95,
+      },
+    });
+    map.addLayer({
+      id: "jawa-stasiun-nama", type: "symbol", source: "jawa_stasiun", minzoom: 11.5,
+      layout: { ...sembunyi, "text-field": ["get", "nama"], "text-font": ["Noto Sans Regular"],
+        "text-size": 10, "text-offset": [0, 0.9], "text-anchor": "top", "text-padding": 2 },
+      paint: { "text-color": "#c9d6c4", "text-halo-color": "#050705", "text-halo-width": 1.4 },
+    });
+    map.addLayer({
+      id: "jawa-bandara-ikon", type: "symbol", source: "jawa_bandara", minzoom: 6,
+      layout: {
+        ...sembunyi, "icon-image": "jw-bandara",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.72, 10, 0.9, 14, 1.05],
+        "icon-allow-overlap": true,
+      },
+    });
+    map.addLayer({
+      id: "jawa-bandara-nama", type: "symbol", source: "jawa_bandara", minzoom: 8,
+      layout: {
+        ...sembunyi, "text-field": ["coalesce", ["get", "iata"], ["get", "nama"]],
+        "text-font": ["Noto Sans Regular"], "text-size": 10.5, "text-offset": [0, 1.25],
+        "text-anchor": "top", "text-padding": 2,
+      },
+      paint: { "text-color": "#ffe7bd", "text-halo-color": "#050705", "text-halo-width": 1.5 },
+    });
+    map.addLayer({
+      id: "jawa-terminal-ikon", type: "symbol", source: "jawa_terminal", minzoom: 7.5,
+      layout: {
+        ...sembunyi, "icon-image": "jw-terminal",
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 8.5, 0.5, 14, 0.8],
+        "icon-allow-overlap": false,
+      },
+    });
+    map.addLayer({
+      id: "jawa-terminal-nama", type: "symbol", source: "jawa_terminal", minzoom: 12,
+      layout: { ...sembunyi, "text-field": ["get", "nama"], "text-font": ["Noto Sans Regular"],
+        "text-size": 10, "text-offset": [0, 1.15], "text-anchor": "top", "text-padding": 2 },
+      paint: { "text-color": "#bdf0d8", "text-halo-color": "#050705", "text-halo-width": 1.4 },
+    });
+    map.addLayer({
+      id: "jawa-halte-titik", type: "circle", source: "jawa_halte", layout: sembunyi, minzoom: 13.5,
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13.5, 2, 17, 4],
+        "circle-color": "#58a874", "circle-stroke-color": "#0b0f0b", "circle-stroke-width": 1,
+        "circle-opacity": 0.9,
+      },
+    });
+    map.addLayer({
+      id: "jawa-halte-nama", type: "symbol", source: "jawa_halte", minzoom: 16,
+      layout: { ...sembunyi, "text-field": ["get", "nama"], "text-font": ["Noto Sans Regular"],
+        "text-size": 9.5, "text-offset": [0, 0.9], "text-anchor": "top" },
+      paint: { "text-color": "#a8d9bd", "text-halo-color": "#050705", "text-halo-width": 1.2 },
+    });
+
+    for (const [k, v] of Object.entries(jawaNyala)) {
+      if (v) (JAWA[k] || []).forEach((id) => atur(id, true));
+    }
 
     /* ── lokasi pengguna ── */
     map.addSource("aku", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -1108,6 +1241,37 @@ function tempelRel(lng, lat, jenis) {
     return pts;
   }
 
+  const JAWA = {
+    rel: ["jawa-rel-garis"],
+    stasiun: ["jawa-stasiun-titik", "jawa-stasiun-nama"],
+    bandara: ["jawa-bandara-ikon", "jawa-bandara-nama"],
+    terminal: ["jawa-terminal-ikon", "jawa-terminal-nama"],
+    halte: ["jawa-halte-titik", "jawa-halte-nama"],
+  };
+  const jawaCache = {};
+  const jawaNyala = {};
+
+  async function setJawa(jenis, on) {
+    const lapis = JAWA[jenis];
+    const src = JAWA_SUMBER[jenis];
+    if (!lapis || !src) return 0;
+    jawaNyala[jenis] = !!on;
+    if (!on) { lapis.forEach((id) => atur(id, false)); return 0; }
+    if (!jawaCache[jenis]) {
+      try {
+        const g = await fetch(src.url).then((r) => r.json());
+        jawaCache[jenis] = g;
+        map.getSource(src.id)?.setData(g);
+        if (onJawa) onJawa(jenis, (g.features || []).length);
+      } catch (e) {
+        console.error("JAWA", jenis, e);
+        return 0;
+      }
+    }
+    lapis.forEach((id) => atur(id, true));
+    return (jawaCache[jenis].features || []).length;
+  }
+
   function lokasiSaya(o) {
     const src = map.getSource("aku");
     if (!src) return;
@@ -1245,6 +1409,7 @@ function tempelRel(lng, lat, jenis) {
     kacaKe,
     lokasiSaya,
     ikutLokasi,
+    setJawa,
     bandaraInfo: () => ({ aktif: bandaraAktif, kode: bandaraKode }),
     hentikan() {
       tj?.berhenti();
