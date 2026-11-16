@@ -31,6 +31,7 @@ const KACA_H = 0.0008; // ±89 m — batas aman export Esri (512 px)
 
 export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca, onGeser, onLokasiKlik, onJawa, onZoom } = {}) {
   let tj = null;
+  let hlsAktif = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
   const viewPusat = [Number(q.get("lng")) || PUSAT[0], Number(q.get("lat")) || PUSAT[1]];
@@ -595,14 +596,44 @@ function tempelRel(lng, lat, jenis) {
         "icon-allow-overlap": true,
       },
     });
+    /* stasiun: tidak ada CCTV peron publik — tampilkan kamera kota terdekat */
+    const jarakM = (a, b) => {
+      const R = 6371000, toR = Math.PI / 180;
+      const dLat = (b[1] - a[1]) * toR, dLng = (b[0] - a[0]) * toR;
+      const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * toR) * Math.cos(b[1] * toR) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(x));
+    };
+    map.on("click", "jawa-stasiun-titik", (e) => {
+      const f = e.features?.[0];
+      if (!f) return;
+      const c = f.geometry.coordinates;
+      const dekat = (map.getSource("kamera")?._data?.features || [])
+        .map((k) => ({ n: k.properties.judul, d: jarakM(c, k.geometry.coordinates) }))
+        .filter((k) => k.d < 900)
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 4);
+      const isi = dekat.length
+        ? `<div class="pcam-s" style="margin-bottom:6px">kamera kota terdekat (bukan CCTV peron)</div>` +
+          dekat.map((k) => `<div class="pst-kam">${Math.round(k.d)} m · ${k.n}</div>`).join("")
+        : `<div class="pcam-s">tidak ada CCTV peron publik · tidak ada kamera kota dalam 900 m</div>`;
+      new maplibregl.Popup({ closeButton: true, offset: 10, className: "pop-cam", maxWidth: "280px" })
+        .setLngLat(c)
+        .setHTML(`<div class="pcam"><div class="pcam-t">${f.properties.nama}</div>
+          <div class="pcam-kota">stasiun ${f.properties.jenis || ""}</div>${isi}</div>`)
+        .addTo(map);
+    });
+
     map.on("click", "kamera-ikon", (e) => {
       const f = e.features?.[0];
       if (!f) return;
       const p = f.properties;
+      const vid = `cam-hls-${Math.random().toString(36).slice(2, 8)}`;
       const isi = p.embed
         ? `<iframe class="cam-pop" src="${p.embed}" allow="autoplay; fullscreen" loading="lazy" referrerpolicy="no-referrer"></iframe>`
         : p.foto
         ? `<img class="cam-pop" src="${p.foto}?t=${Date.now()}" alt="${p.judul}" />`
+        : p.hls
+        ? `<video class="cam-pop" id="${vid}" muted playsinline controls></video>`
         : `<div class="cam-kosong">tidak ada tayangan</div>`;
       new maplibregl.Popup({ closeButton: true, offset: 14, className: "pop-cam", maxWidth: "320px" })
         .setLngLat(f.geometry.coordinates)
@@ -613,6 +644,22 @@ function tempelRel(lng, lat, jenis) {
             <div class="pcam-s">siaran publik · klik kamera lain untuk ganti</div>
           </div>`)
         .addTo(map);
+      if (p.hls) {
+        if (hlsAktif) { try { hlsAktif.destroy(); } catch {} hlsAktif = null; }
+        import("hls.js").then(({ default: Hls }) => {
+          const v = document.getElementById(vid);
+          if (!v) return;
+          if (Hls.isSupported()) {
+            hlsAktif = new Hls({ maxBufferLength: 6 });
+            hlsAktif.loadSource(p.hls);
+            hlsAktif.attachMedia(v);
+            hlsAktif.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
+          } else if (v.canPlayType("application/vnd.apple.mpegurl")) {
+            v.src = p.hls;
+            v.play().catch(() => {});
+          }
+        }).catch(() => {});
+      }
     });
     map.on("mouseenter", "kamera-ikon", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kamera-ikon", () => (map.getCanvas().style.cursor = ""));
@@ -626,7 +673,7 @@ function tempelRel(lng, lat, jenis) {
             type: "Feature",
             geometry: { type: "Point", coordinates: [k.lng, k.lat] },
             properties: { nama: k.nama, judul: k.judul, kota: k.kota, jenis: k.jenis,
-              embed: k.embed || "", foto: k.foto || "", perkiraan: !!k.perkiraan },
+              embed: k.embed || "", foto: k.foto || "", hls: k.hls || "", perkiraan: !!k.perkiraan },
           }));
         map.getSource("kamera")?.setData({ type: "FeatureCollection", features: feats });
       })

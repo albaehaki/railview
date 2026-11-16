@@ -651,3 +651,5 @@ body {
   .fab-lokasi { right: 10px; bottom: 96px; width: 44px; height: 44px; }
   .gps { bottom: 54px; left: 10px; }
 }
+
+.pst-kam { font: 400 10.5px/1.5 "IBM Plex Mono", monospace; color: #b9d8ff; padding: 2px 0; }

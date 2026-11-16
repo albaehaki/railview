@@ -1,6 +1,7 @@
 import KAMERA from "./data/kamera.mjs";
 import STATUS from "./data/status.mjs";
 import KAMERA_JKT from "./data/kamera-jkt.mjs";
+import TOL from "./data/tol-kamera.mjs";
 
 const BASE = "https://bekasikota.go.id";
 const UA = { "User-Agent": "Mozilla/5.0 (RailView)", Referer: BASE + "/" };
@@ -52,7 +53,16 @@ export default async (req) => {
       .filter((k) => k.lat && k.lng)
       .map((k) => ({ nama: k.nama, judul: k.judul, lat: k.lat, lng: k.lng, jenis: k.jenis,
         embed: k.embed || "", foto: k.foto || "", kota: k.kota || "Bogor", perkiraan: !!k.perkiraan }));
-    return new Response(JSON.stringify({ jumlah: titik.length, kamera: titik }), {
+    const tol = TOL.filter((k) => k.cara !== "kasar").map((k) => ({ nama: k.nama, judul: k.judul, lat: k.lat, lng: k.lng, jenis: "hls",
+      embed: "", foto: "", hls: k.hls, kota: "Tol", perkiraan: true }));
+    const semua = [...titik, ...tol];
+    return new Response(JSON.stringify({ jumlah: semua.length, kamera: semua }), {
+      headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "public, max-age=600" },
+    });
+  }
+
+  if (what === "tol") {
+    return new Response(JSON.stringify({ jumlah: TOL.length, kamera: TOL }), {
       headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "public, max-age=600" },
     });
   }
