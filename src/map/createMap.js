@@ -557,22 +557,27 @@ function tempelRel(lng, lat, jenis) {
 
     /* kamera CCTV publik di peta */
     if (!map.hasImage("kamera-ikon")) {
-      const s = 26;
+      const s = 40;
       const c = document.createElement("canvas");
       c.width = c.height = s;
       const x = c.getContext("2d");
-      x.fillStyle = "#20180a";
-      x.strokeStyle = "#d9a24b";
-      x.lineWidth = 2;
+      // badan kamera: isian amber penuh + garis tepi terang, biar terbaca di zoom rendah
+      x.fillStyle = "#e8a93c";
+      x.strokeStyle = "#fff2d6";
+      x.lineWidth = 2.4;
       x.beginPath();
-      x.roundRect(3, 6, 20, 14, 3);
+      x.roundRect(6, 11, 28, 19, 4.5);
       x.fill();
       x.stroke();
-      x.fillStyle = "#d9a24b";
+      // lensa gelap
+      x.fillStyle = "#1c1508";
       x.beginPath();
-      x.arc(9, 13, 3.4, 0, Math.PI * 2);
+      x.arc(16, 20.5, 5.2, 0, Math.PI * 2);
       x.fill();
-      x.fillRect(14, 11, 6, 4);
+      // badan lensa
+      x.beginPath();
+      x.roundRect(24, 17, 8, 7, 1.8);
+      x.fill();
       map.addImage("kamera-ikon", x.getImageData(0, 0, s, s), { pixelRatio: 2 });
     }
     map.addSource("kamera", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -582,12 +587,12 @@ function tempelRel(lng, lat, jenis) {
       source: "kamera",
       minzoom: 9.5,
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9.5, 6, 14, 10],
-        "circle-color": "#d9a24b",
-        "circle-opacity": 0.22,
-        "circle-stroke-color": "#d9a24b",
-        "circle-stroke-width": 1,
-        "circle-stroke-opacity": 0.55,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 9.5, 8, 14, 13],
+        "circle-color": "#e8a93c",
+        "circle-opacity": 0.26,
+        "circle-stroke-color": "#ffd58a",
+        "circle-stroke-width": 1.2,
+        "circle-stroke-opacity": 0.7,
       },
     });
     map.addLayer({
@@ -597,7 +602,7 @@ function tempelRel(lng, lat, jenis) {
       minzoom: 9.5,
       layout: {
         "icon-image": "kamera-ikon",
-        "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.5, 14, 0.95],
+        "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.62, 12, 0.8, 14, 1.15],
         "icon-allow-overlap": true,
       },
       paint: {
