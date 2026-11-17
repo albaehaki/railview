@@ -617,10 +617,7 @@ function tempelRel(lng, lat, jenis) {
       const x = Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * toR) * Math.cos(b[1] * toR) * Math.sin(dLng / 2) ** 2;
       return 2 * R * Math.asin(Math.sqrt(x));
     };
-    map.on("click", "jawa-stasiun-titik", (e) => {
-      const f = e.features?.[0];
-      if (!f) return;
-      const c = f.geometry.coordinates;
+    const bukaPopupStasiun = (props, c) => {
       const dekat = (map.getSource("kamera")?._data?.features || [])
         .map((k) => ({ n: k.properties.judul, d: jarakM(c, k.geometry.coordinates) }))
         .filter((k) => k.d < 900)
@@ -630,11 +627,43 @@ function tempelRel(lng, lat, jenis) {
         ? `<div class="pcam-s" style="margin-bottom:6px">kamera kota terdekat (bukan CCTV peron)</div>` +
           dekat.map((k) => `<div class="pst-kam">${Math.round(k.d)} m · ${k.n}</div>`).join("")
         : `<div class="pcam-s">tidak ada CCTV peron publik · tidak ada kamera kota dalam 900 m</div>`;
-      new maplibregl.Popup({ closeButton: true, offset: 10, className: "pop-cam", maxWidth: "280px" })
+      const pop = new maplibregl.Popup({ closeButton: true, offset: 10, className: "pop-cam", maxWidth: "340px" })
         .setLngLat(c)
-        .setHTML(`<div class="pcam"><div class="pcam-t">${f.properties.nama}</div>
-          <div class="pcam-kota">stasiun ${f.properties.jenis || ""}</div>${isi}</div>`)
+        .setHTML(`<div class="pcam"><div class="pcam-t">${props.nama || "stasiun"}</div>
+          <div class="pcam-kota">jadwal keberangkatan</div>
+          <div class="pst-jd" id="pst-jd">memuat jadwal…</div>
+          ${isi}</div>`)
         .addTo(map);
+      const idJd = `pst-jd-${Math.random().toString(36).slice(2, 7)}`;
+      const kotak = pop.getElement()?.querySelector(".pst-jd");
+      if (kotak) kotak.id = idJd;
+      fetch(`/api/rail?what=jadwal&lat=${c[1]}&lng=${c[0]}&nama=${encodeURIComponent(props.nama || "")}&t=${Date.now()}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const el = pop.getElement()?.querySelector(".pst-jd");
+          if (!el) return;
+          if (d.error || !d.jadwal?.length) {
+            el.innerHTML = `<div class="pst-kosong">${d.error || "tidak ada keberangkatan dalam 6 jam"}</div>`;
+            return;
+          }
+          el.innerHTML = `<div class="pst-ket">${d.stasiun?.nama || ""} · ${d.sekarang} · ${d.jumlah} KA dalam 6 jam</div>` +
+            d.jadwal.map((j, i) => `<div class="pst-baris"><b>${j[3]}</b><span>${j[0]}</span><em>${j[2] || ""}</em><i>${d.menit[i] <= 0 ? "sekarang" : d.menit[i] + "′"}</i></div>`).join("");
+        })
+        .catch(() => {
+          const el = pop.getElement()?.querySelector(".pst-jd");
+          if (el) el.innerHTML = `<div class="pst-kosong">jadwal gagal dimuat</div>`;
+        });
+    };
+    window.__bukaStasiun = bukaPopupStasiun;
+    map.on("click", "stasiun-osm-ikon", (e) => {
+      const f = e.features?.[0];
+      if (f) bukaPopupStasiun(f.properties, f.geometry.coordinates);
+    });
+    map.on("mouseenter", "stasiun-osm-ikon", () => (map.getCanvas().style.cursor = "pointer"));
+    map.on("mouseleave", "stasiun-osm-ikon", () => (map.getCanvas().style.cursor = ""));
+    map.on("click", "jawa-stasiun-titik", (e) => {
+      const f = e.features?.[0];
+      if (f) bukaPopupStasiun(f.properties, f.geometry.coordinates);
     });
 
     const bukaPopupKamera = (p, c) => {

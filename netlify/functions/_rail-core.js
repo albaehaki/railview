@@ -211,3 +211,60 @@ export async function ambilJalur(id) {
 
   return { id: t.tr_id, kode: t.tr_cd, nama: t.tr_name, tipe: t.tr_type, relasi: t.relation, jalur, garis };
 }
+
+/* ---------- jadwal keberangkatan per stasiun (GAPEKA) ---------- */
+const rapikan = (x) => String(x || "").toLowerCase()
+  .replace(/^stasiun\s+/, "").replace(/\bstation\b/g, "").replace(/[^a-z0-9]/g, "");
+
+const jamWib = (ms) => {
+  const t = Math.round((ms % 86400000) / 60000);
+  return String(Math.floor(t / 60) % 24).padStart(2, "0") + ":" + String(t % 60).padStart(2, "0");
+};
+
+export async function ambilJadwal({ nama, lat, lng }) {
+  const d = await getJson("/simulation/trains-region");
+  const nowMs = nowMsWib();
+  const la = lat ? Number(lat) : null, ln = lng ? Number(lng) : null;
+  const cari = rapikan(nama);
+
+  let titik = null, jarak = Infinity;
+  for (const t of d.data || []) {
+    for (const p of t.paths || []) {
+      if (p.lat == null || p.lng == null) continue;
+      if (la != null && ln != null) {
+        const dm = jarakM([la, ln], [Number(p.lat), Number(p.lng)]);
+        if (dm < jarak) { jarak = dm; titik = p; }
+      } else if (cari && rapikan(p.st_name) === cari) { titik = p; }
+    }
+  }
+  if (!titik) return { error: "stasiun tidak ditemukan di data jadwal" };
+  if (la != null && jarak > 700) return { error: "stasiun terdekat di jadwal terlalu jauh", jarak_m: Math.round(jarak) };
+
+  const kode = titik.st_cd;
+  const namaSt = new Map();
+  for (const t of d.data || []) for (const p of t.paths || []) if (p.st_cd && p.st_name) namaSt.set(p.st_cd, p.st_name);
+  const keluar = [];
+  for (const t of d.data || []) {
+    const ps = t.paths || [];
+    const i = ps.findIndex((p) => p.st_cd === kode);
+    if (i < 0) continue;
+    const p = ps[i];
+    const dep = p.depart_ms ?? p.arriv_ms;
+    if (dep == null) continue;
+    let e = dep;
+    while (e < nowMs - 120000) e += 86400000;      /* jadwal lewat tengah malam */
+    if (e > nowMs + 6 * 3600000) continue;          /* hanya 6 jam ke depan */
+    const ujung = ps[ps.length - 1];
+    const tujuan = namaSt.get(t.end_st_cd) || ujung?.st_name || t.end_st_cd || "";
+    keluar.push([t.tr_cd || String(t.tr_id), t.tr_name || "", tujuan, jamWib(dep), t.tr_type || "", Math.round((e - nowMs) / 60000)]);
+  }
+  keluar.sort((a, b) => a[5] - b[5]);
+  return {
+    stasiun: { kode, nama: titik.st_name, jarak_m: la != null ? Math.round(jarak) : 0 },
+    sekarang: jamWib(nowMs),
+    sumber: "jadwal GAPEKA (168railway)",
+    jumlah: keluar.length,
+    jadwal: keluar.slice(0, 12).map((x) => x.slice(0, 5)),
+    menit: keluar.slice(0, 12).map((x) => x[5]),
+  };
+}
