@@ -366,7 +366,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">RailView<i>pantau publik</i></div>
-        <div className="crumbs"><b>{zPeta < 8 ? "JAWA" : "JABODETABEK"}</b> / {status === "siap" ? "data langsung" : status === "memuat" ? "memuat…" : "gangguan"}</div>
+        <div className="crumbs"><b>{zPeta < 8 ? "JAWA" : "JABODETABEK"}</b> / {status === "siap" ? "bus & pesawat langsung · kereta perkiraan jadwal" : status === "memuat" ? "memuat…" : "gangguan"}</div>
         <div className="meta">
           <span><b>{trains.length}</b> aktif</span>
           <span><b>{bus}</b> bus</span>
@@ -467,7 +467,8 @@ export default function App() {
         <div className="ringkas">
           <button className="ringkas-x" onClick={() => setRingkas(false)} aria-label="sembunyikan ringkasan">×</button>
           <h4>Ringkas</h4>
-          <div className="rbaris"><span className="rdot" style={{ background: WARNA_MODA.K }} />KRL<em>{jumlah("K")}</em></div>
+          <div className="rnote">kereta = perkiraan dari jadwal, bukan GPS</div>
+          <div className="rbaris"><span className="rdot" style={{ background: WARNA_MODA.K }} />KRL<em>≈{jumlah("K")}</em></div>
           <div className="rbaris"><span className="rdot" style={{ background: "#f08a2c" }} />TransJakarta<em>{bus}</em></div>
           <div className="rbaris"><span className="rdot" style={{ background: WARNA_MODA.L }} />LRT<em>{jumlah("L") + jumlah("J")}</em></div>
           <div className="rbaris"><span className="rdot" style={{ background: "#a9c8e8" }} />Pesawat<em>{pesawat ? "on" : "off"}</em></div>

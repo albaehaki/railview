@@ -654,6 +654,8 @@ body {
 
 .pst-kam { font: 400 10.5px/1.5 "IBM Plex Mono", monospace; color: #b9d8ff; padding: 2px 0; }
 
+.rnote { font: 400 9.5px/1.45 "IBM Plex Mono", monospace; color: #c9a24b; margin: -2px 0 8px; letter-spacing: .01em; }
+
 /* tab Kamera */
 .kamgrid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .9fr); gap: 12px; height: 100%; }
 .kamplay { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
