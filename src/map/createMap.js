@@ -231,6 +231,9 @@ function tempelRel(lng, lat, jenis) {
         "icon-image": "stasiun-ikon",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.34, 13, 0.66],
         "icon-allow-overlap": true,
+      },
+      paint: {
+        /* icon-opacity itu PAINT, bukan layout — data expression di layout bikin addLayer gagal */
         "icon-opacity": ["case", ["==", ["get", "hidup"], false], 0.32, 1],
       },
     });
@@ -596,6 +599,9 @@ function tempelRel(lng, lat, jenis) {
         "icon-image": "kamera-ikon",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.5, 14, 0.95],
         "icon-allow-overlap": true,
+      },
+      paint: {
+        /* icon-opacity itu PAINT, bukan layout — data expression di layout bikin addLayer gagal */
         "icon-opacity": ["case", ["==", ["get", "hidup"], false], 0.32, 1],
       },
     });
@@ -1057,6 +1063,9 @@ function tempelRel(lng, lat, jenis) {
         ...sembunyi, "icon-image": "jw-bandara",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.72, 10, 0.9, 14, 1.05],
         "icon-allow-overlap": true,
+      },
+      paint: {
+        /* icon-opacity itu PAINT, bukan layout — data expression di layout bikin addLayer gagal */
         "icon-opacity": ["case", ["==", ["get", "hidup"], false], 0.32, 1],
       },
     });
