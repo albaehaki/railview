@@ -49,6 +49,7 @@ export default function App() {
   const [bus, setBus] = useState(0);
   const [kamera, setKamera] = useState(null);
   const [daftarKamera, setDaftarKamera] = useState([]);
+  const [cariKam, setCariKam] = useState("");
   const videoRef = useRef(null);
   const daftarRef = useRef([]);
   const [jumlahStasiun, setJumlahStasiun] = useState(0);
@@ -116,9 +117,19 @@ export default function App() {
         const semua = d.kamera || [];
         if (!semua.length) throw new Error("kosong");
         daftarRef.current = semua;
-        setDaftarKamera(semua);
         const urut = [...semua].sort((a, b) => Number(!!b.hidup && !b.hanyaGambar) - Number(!!a.hidup && !a.hanyaGambar));
         setDaftarKamera(urut);
+        fetch(`/api/cctv?what=tol&t=${Date.now()}`)
+          .then((r) => r.json())
+          .then((t) => {
+            if (!hidup) return;
+            const tol = (t.kamera || []).filter((k) => k.cara === "km").map((k) => ({
+              nama: k.nama, judul: k.judul, kota: "Tol", jenis: "hls", hls: k.hls, hidup: true,
+              catatan: `ruas ${k.ruas} · titik perkiraan dari nomor KM`,
+            }));
+            if (tol.length) setDaftarKamera([...urut, ...tol]);
+          })
+          .catch(() => {});
         const mau = new URLSearchParams(location.search).get("cam");
         setKamera(
           (mau && urut.find((k) => k.nama === mau)) ||
@@ -140,7 +151,7 @@ export default function App() {
     if (!v || !kamera || tab !== "kamera" || laci === "tutup" || kamera.hanyaGambar || kamera.jenis === "iframe" || kamera.jenis === "embed") return;
     let hls = null;
     let batal = false;
-    const url = `/api/cctv?what=m3u8&n=${encodeURIComponent(kamera.nama)}`;
+    const url = kamera.hls || `/api/cctv?what=m3u8&n=${encodeURIComponent(kamera.nama)}`;
 
     (async () => {
       const Hls = (await import("hls.js")).default;
@@ -493,6 +504,9 @@ export default function App() {
           <button className={"lt" + (tab === "lapisan" ? " on" : "")} onClick={() => setTab("lapisan")}>
             Lapisan <u>{["K", "M", "L", "J", "W", "A", "B"].filter((m) => jumlah(m)).length + 2}</u>
           </button>
+          <button className={"lt" + (tab === "kamera" ? " on" : "")} onClick={() => setTab("kamera")}>
+            Kamera <u>{daftarKamera.length || "—"}</u>
+          </button>
           <button className={"lt" + (tab === "bandara" ? " on" : "")} onClick={() => setTab("bandara")}>
             Bandara <u>{bandara ? bandaraInfo?.jumlah?.gate ?? "on" : "off"}</u>
           </button>
@@ -633,6 +647,59 @@ export default function App() {
                       </button>
                     ))}
                   {bandaraInfo && !bandaraInfo.gates.length && <p className="note">Bandara ini belum punya data gate di OSM.</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "kamera" && (
+            <div className="kamgrid">
+              <div className="kartu kamplay">
+                <div className="kamhead">
+                  <b>{kamera?.judul || "pilih kamera"}</b>
+                  <span className={"kst" + (kamera?.hidup === false ? " mati" : kamera?.hanyaGambar ? " img" : "")}>
+                    {kamera?.hanyaGambar ? "gambar 10 dtk" : kamera?.hidup === false ? "mati" : "siaran"}
+                  </span>
+                </div>
+                <div className="kambodi">
+                  {!kamera ? (
+                    <div className="kamkosong">daftar kamera belum termuat…</div>
+                  ) : kamera.hanyaGambar && kamera.foto ? (
+                    <img className="kammed" src={kamera.foto} alt="" />
+                  ) : kamera.jenis === "iframe" || kamera.jenis === "embed" ? (
+                    <iframe className="kammed" src={kamera.embed || kamera.foto} allow="autoplay; fullscreen" loading="lazy" referrerPolicy="no-referrer" />
+                  ) : (
+                    <video className="kammed" ref={videoRef} muted playsInline controls />
+                  )}
+                </div>
+                <div className="kamkaki">
+                  <span>{kamera?.kota || "—"}</span>
+                  <span>{kamera?.catatan || "siaran publik · tidak direkam"}</span>
+                </div>
+              </div>
+
+              <div className="kartu kamlist">
+                <input
+                  className="kamcari"
+                  value={cariKam}
+                  onChange={(e) => setCariKam(e.target.value)}
+                  placeholder="cari kamera · jalan · kota · ruas tol"
+                />
+                <div className="kamrows">
+                  {(cariKam.trim()
+                    ? daftarKamera.filter((k) => `${k.judul} ${k.kota}`.toLowerCase().includes(cariKam.trim().toLowerCase()))
+                    : daftarKamera
+                  ).slice(0, 300).map((k) => (
+                    <button
+                      key={k.nama}
+                      className={"kamrow" + (k.nama === kamera?.nama ? " on" : "")}
+                      onClick={() => setKamera(k)}
+                    >
+                      <i className={k.hidup === false ? "mati" : k.hanyaGambar ? "img" : "live"} />
+                      <span><b>{k.judul}</b><em>{k.kota}</em></span>
+                    </button>
+                  ))}
+                  {!daftarKamera.length && <p className="note">belum ada kamera yang bisa dimuat.</p>}
                 </div>
               </div>
             </div>

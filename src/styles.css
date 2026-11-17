@@ -653,3 +653,27 @@ body {
 }
 
 .pst-kam { font: 400 10.5px/1.5 "IBM Plex Mono", monospace; color: #b9d8ff; padding: 2px 0; }
+
+/* tab Kamera */
+.kamgrid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .9fr); gap: 12px; height: 100%; }
+.kamplay { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.kamhead { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; color: #e9f1e4; }
+.kst { font: 500 9.5px/1 "IBM Plex Mono", monospace; letter-spacing: .06em; padding: 3px 7px; border-radius: 99px; background: #1b2a17; color: #9fe08a; border: 1px solid #2c4426; }
+.kst.mati { background: #2a1616; color: #e08a8a; border-color: #4a2626; }
+.kst.img { background: #2a2413; color: #e0c88a; border-color: #4a3f1e; }
+.kambodi { position: relative; flex: 1; min-height: 190px; border-radius: 12px; overflow: hidden; background: #050705; border: 1px solid #23301f; }
+.kammed { width: 100%; height: 100%; object-fit: contain; display: block; border: 0; background: #050705; }
+.kamkosong { position: absolute; inset: 0; display: grid; place-items: center; font-size: 11px; color: #7f8f78; }
+.kamkaki { display: flex; justify-content: space-between; gap: 8px; font: 400 10px/1.4 "IBM Plex Mono", monospace; color: #8ba183; }
+.kamlist { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.kamcari { width: 100%; padding: 8px 10px; border-radius: 9px; background: #0d140b; border: 1px solid #26311f; color: #dfe9d8; font-size: 11.5px; }
+.kamrows { overflow: auto; max-height: 46vh; display: flex; flex-direction: column; gap: 2px; }
+.kamrow { display: flex; gap: 8px; align-items: center; text-align: left; padding: 6px 7px; border-radius: 8px; background: transparent; border: 0; color: #cfdcc7; cursor: pointer; }
+.kamrow:hover { background: #131b10; }
+.kamrow.on { background: #1a2614; outline: 1px solid #3a4d2c; }
+.kamrow i { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: #61d16a; }
+.kamrow i.mati { background: #a44848; }
+.kamrow i.img { background: #c9a44b; }
+.kamrow b { display: block; font: 500 11.5px/1.3 system-ui, sans-serif; color: #e8f0e2; }
+.kamrow em { display: block; font: 400 9.5px/1.3 "IBM Plex Mono", monospace; color: #7f9179; font-style: normal; }
+@media (max-width: 900px) { .kamgrid { grid-template-columns: 1fr; } .kamrows { max-height: 34vh; } }
