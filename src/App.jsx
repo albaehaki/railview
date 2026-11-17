@@ -124,8 +124,8 @@ export default function App() {
           .then((t) => {
             if (!hidup) return;
             const tol = (t.kamera || []).filter((k) => k.cara === "km").map((k) => ({
-              nama: k.nama, judul: k.judul, kota: "Tol", jenis: "hls", hls: k.hls, hidup: true,
-              catatan: `ruas ${k.ruas} · titik perkiraan dari nomor KM`,
+              nama: k.nama, judul: k.judul, kota: "Tol", jenis: "hls", hls: k.hls,
+              hidup: k.hidup !== false, catatan: k.hidup === false ? `siaran mati · ruas ${k.ruas}` : `ruas ${k.ruas} · titik perkiraan dari nomor KM`,
             }));
             if (tol.length) setDaftarKamera([...urut, ...tol]);
           })

@@ -32,6 +32,7 @@ const KACA_H = 0.0008; // ±89 m — batas aman export Esri (512 px)
 export function createMap(el, { onTrain, onKamera, onBus, onStasiun, onBandara, onKaca, onGeser, onLokasiKlik, onJawa, onZoom } = {}) {
   let tj = null;
   let hlsAktif = null;
+  let popupKamera = null;
   const q = new URLSearchParams(location.search);
   const viewZoom = Number(q.get("z")) || 9.2;
   const viewPusat = [Number(q.get("lng")) || PUSAT[0], Number(q.get("lat")) || PUSAT[1]];
@@ -230,6 +231,7 @@ function tempelRel(lng, lat, jenis) {
         "icon-image": "stasiun-ikon",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 9, 0.34, 13, 0.66],
         "icon-allow-overlap": true,
+        "icon-opacity": ["case", ["==", ["get", "hidup"], false], 0.32, 1],
       },
     });
 
@@ -400,7 +402,7 @@ function tempelRel(lng, lat, jenis) {
       if (!f) return;
       const p = f.properties;
       new maplibregl.Popup({ closeButton: false, offset: 14, className: "pop-psw", maxWidth: "240px" })
-        .setLngLat(f.geometry.coordinates)
+        .setLngLat(c)
         .setHTML(`<div class="pps"><div class="pps-kode">${p.callsign}</div>
           <div class="pps-negara">${p.negara || "—"}</div>
           <div class="pps-angka">${p.alt ? (p.alt + " m") : "—"} · ${p.cepat ? (p.cepat + " km/j") : "—"} · ${p.arah}°</div></div>`)
@@ -594,6 +596,7 @@ function tempelRel(lng, lat, jenis) {
         "icon-image": "kamera-ikon",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 9.5, 0.5, 14, 0.95],
         "icon-allow-overlap": true,
+        "icon-opacity": ["case", ["==", ["get", "hidup"], false], 0.32, 1],
       },
     });
     /* stasiun: tidak ada CCTV peron publik — tampilkan kamera kota terdekat */
@@ -623,28 +626,29 @@ function tempelRel(lng, lat, jenis) {
         .addTo(map);
     });
 
-    map.on("click", "kamera-ikon", (e) => {
-      const f = e.features?.[0];
-      if (!f) return;
-      const p = f.properties;
+    const bukaPopupKamera = (p, c) => {
       const vid = `cam-hls-${Math.random().toString(36).slice(2, 8)}`;
-      const isi = p.embed
+      const mati = p.hidup === false;
+      const isi = mati
+        ? `<div class="cam-kosong">siaran sedang mati<br/><small>${p.catatan || "kamera tidak mengirim gambar"}</small></div>`
+        : p.embed
         ? `<iframe class="cam-pop" src="${p.embed}" allow="autoplay; fullscreen" loading="lazy" referrerpolicy="no-referrer"></iframe>`
         : p.foto
         ? `<img class="cam-pop" src="${p.foto}?t=${Date.now()}" alt="${p.judul}" />`
         : p.hls
         ? `<video class="cam-pop" id="${vid}" muted playsinline controls></video>`
         : `<div class="cam-kosong">tidak ada tayangan</div>`;
-      new maplibregl.Popup({ closeButton: true, offset: 14, className: "pop-cam", maxWidth: "320px" })
-        .setLngLat(f.geometry.coordinates)
+      popupKamera?.remove();
+      popupKamera = new maplibregl.Popup({ closeButton: true, offset: 14, className: "pop-cam", maxWidth: "320px" })
+        .setLngLat(c)
         .setHTML(`<div class="pcam">
             <div class="pcam-t">${p.judul || "kamera"}</div>
-            <div class="pcam-kota">${p.kota || ""}${p.perkiraan ? " · titik perkiraan" : ""}</div>
+            <div class="pcam-kota">${p.kota || ""}${p.perkiraan ? " · titik perkiraan" : ""}${mati ? " · mati" : ""}</div>
             <div class="pcam-tayang">${isi}</div>
             <div class="pcam-s">siaran publik · klik kamera lain untuk ganti</div>
           </div>`)
         .addTo(map);
-      if (p.hls) {
+      if (p.hls && !mati) {
         if (hlsAktif) { try { hlsAktif.destroy(); } catch {} hlsAktif = null; }
         import("hls.js").then(({ default: Hls }) => {
           const v = document.getElementById(vid);
@@ -654,12 +658,24 @@ function tempelRel(lng, lat, jenis) {
             hlsAktif.loadSource(p.hls);
             hlsAktif.attachMedia(v);
             hlsAktif.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}));
+            hlsAktif.on(Hls.Events.ERROR, (_e, d) => {
+              window.__hlsErr = JSON.stringify({ t: d.type, d: d.details, code: d.response?.code, url: d.url });
+              if (!d.fatal) return;
+              const wadah = v.parentElement;
+              if (wadah) wadah.innerHTML = `<div class="cam-kosong">siaran tidak bisa diputar<br/><small>${d.details || "galat hls"}</small></div>`;
+            });
           } else if (v.canPlayType("application/vnd.apple.mpegurl")) {
             v.src = p.hls;
             v.play().catch(() => {});
           }
         }).catch(() => {});
       }
+    };
+    window.__bukaKamera = bukaPopupKamera;
+
+    map.on("click", "kamera-ikon", (e) => {
+      const f = e.features?.[0];
+      if (f) bukaPopupKamera(f.properties, f.geometry.coordinates);
     });
     map.on("mouseenter", "kamera-ikon", () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", "kamera-ikon", () => (map.getCanvas().style.cursor = ""));
@@ -673,7 +689,8 @@ function tempelRel(lng, lat, jenis) {
             type: "Feature",
             geometry: { type: "Point", coordinates: [k.lng, k.lat] },
             properties: { nama: k.nama, judul: k.judul, kota: k.kota, jenis: k.jenis,
-              embed: k.embed || "", foto: k.foto || "", hls: k.hls || "", perkiraan: !!k.perkiraan },
+              embed: k.embed || "", foto: k.foto || "", hls: k.hls || "", perkiraan: !!k.perkiraan,
+              hidup: k.hidup === undefined ? null : k.hidup, catatan: k.catatan || "" },
           }));
         map.getSource("kamera")?.setData({ type: "FeatureCollection", features: feats });
       })
@@ -741,7 +758,7 @@ function tempelRel(lng, lat, jenis) {
       if (f) {
         const p = f.properties;
         new maplibregl.Popup({ closeButton: false, offset: 14, className: "pop-tj", maxWidth: "280px" })
-          .setLngLat(f.geometry.coordinates)
+          .setLngLat(c)
           .setHTML(`<div class="ptj">
             <div class="ptj-utama"><span class="ptj-kode">${p.rute || "TJ"}</span><span class="ptj-tipe">${p.tipe || "BRT"}</span></div>
             <div class="ptj-nama">${p.nama || "TransJakarta"}</div>
@@ -858,7 +875,7 @@ function tempelRel(lng, lat, jenis) {
         return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
       };
       const pop = new maplibregl.Popup({ closeButton: true, offset: 12, className: "pop-kereta", maxWidth: "300px" })
-        .setLngLat(f.geometry.coordinates)
+        .setLngLat(c)
         .setHTML(`<div class="pkr">
             <div class="pkr-atas"><span class="pkr-kode">${p.kode || p.id}</span><span class="pkr-moda">${MODA[p.moda] || p.moda}</span></div>
             <div class="pkr-muat">memuat rincian perjalanan…</div>
@@ -1040,6 +1057,7 @@ function tempelRel(lng, lat, jenis) {
         ...sembunyi, "icon-image": "jw-bandara",
         "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.72, 10, 0.9, 14, 1.05],
         "icon-allow-overlap": true,
+        "icon-opacity": ["case", ["==", ["get", "hidup"], false], 0.32, 1],
       },
     });
     map.addLayer({

@@ -2,6 +2,7 @@ import KAMERA from "./data/kamera.mjs";
 import STATUS from "./data/status.mjs";
 import KAMERA_JKT from "./data/kamera-jkt.mjs";
 import TOL from "./data/tol-kamera.mjs";
+import TOL_STATUS from "./data/tol-status.mjs";
 
 const BASE = "https://bekasikota.go.id";
 const UA = { "User-Agent": "Mozilla/5.0 (RailView)", Referer: BASE + "/" };
@@ -54,7 +55,8 @@ export default async (req) => {
       .map((k) => ({ nama: k.nama, judul: k.judul, lat: k.lat, lng: k.lng, jenis: k.jenis,
         embed: k.embed || "", foto: k.foto || "", kota: k.kota || "Bogor", perkiraan: !!k.perkiraan }));
     const tol = TOL.filter((k) => k.cara !== "kasar").map((k) => ({ nama: k.nama, judul: k.judul, lat: k.lat, lng: k.lng, jenis: "hls",
-      embed: "", foto: "", hls: k.hls, kota: "Tol", perkiraan: true }));
+      embed: "", foto: "", hls: k.hls, kota: "Tol", perkiraan: true,
+      hidup: TOL_STATUS[k.nama]?.hidup ?? null, catatan: TOL_STATUS[k.nama]?.catatan || "" }));
     const semua = [...titik, ...tol];
     return new Response(JSON.stringify({ jumlah: semua.length, kamera: semua }), {
       headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "public, max-age=600" },
@@ -62,7 +64,8 @@ export default async (req) => {
   }
 
   if (what === "tol") {
-    return new Response(JSON.stringify({ jumlah: TOL.length, kamera: TOL }), {
+    const tolSemua = TOL.map((k) => ({ ...k, hidup: TOL_STATUS[k.nama]?.hidup ?? null, catatan: TOL_STATUS[k.nama]?.catatan || "" }));
+    return new Response(JSON.stringify({ jumlah: tolSemua.length, kamera: tolSemua }), {
       headers: { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*", "cache-control": "public, max-age=600" },
     });
   }
